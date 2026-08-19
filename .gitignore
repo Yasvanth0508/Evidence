@@ -1,0 +1,20 @@
+# JVM & Logs
+*.log
+hs_err_*.log
+replay_*.log
+
+# Build & Dependencies
+target/
+node_modules/
+dist/
+build/
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE & OS
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.DS_Store
+Thumbs.db

@@ -35,13 +35,17 @@ function Request-Api {
         }
     } catch [System.Net.WebException] {
         $ex = $_.Exception
-        $statusCode = [int]$ex.Response.StatusCode
-        $reader = New-Object System.IO.StreamReader($ex.Response.GetResponseStream())
-        $respBody = $reader.ReadToEnd()
+        $statusCode = 500
         $json = $null
-        try {
-            $json = $respBody | ConvertFrom-Json
-        } catch {}
+        $respBody = ""
+        if ($ex.Response -ne $null) {
+            $statusCode = [int]$ex.Response.StatusCode
+            $reader = New-Object System.IO.StreamReader($ex.Response.GetResponseStream())
+            $respBody = $reader.ReadToEnd()
+            try {
+                $json = $respBody | ConvertFrom-Json
+            } catch {}
+        }
         return @{
             StatusCode = $statusCode
             Data = $json
@@ -55,6 +59,19 @@ function Request-Api {
             Success = $false
         }
     }
+}
+
+# Wait for server to become ready
+Write-Host "Checking backend availability..." -ForegroundColor Gray
+$ready = $false
+for ($i = 0; $i -lt 15; $i++) {
+    $check = Request-Api -Uri "$baseUrl/workspaces"
+    if ($check.StatusCode -eq 200) {
+        $ready = $true
+        Write-Host "Backend is READY!" -ForegroundColor Green
+        break
+    }
+    Start-Sleep -Seconds 1
 }
 
 function Assert-Test {
@@ -208,16 +225,136 @@ $assessment2Id = $createAsmnt2Res.Data.data.assessmentId
 $cancelRes = Request-Api -Uri "$baseUrl/assessments/$assessment2Id/cancel" -Method POST
 Assert-Test -TestName "3.9 Cancel Assessment (POST /assessments/{id}/cancel)" -Condition ($cancelRes.StatusCode -eq 200 -and $cancelRes.Data.data.status -eq "CANCELLED") -Details "Cancelled Assessment Status: $($cancelRes.Data.data.status)"
 
-# 4. CLEANUP / REMOVAL TESTS
+# 4. REPOSITORY ANALYSIS MODULE TESTS (MODULE 4)
+Write-Host "`n--- TESTING MODULE 4: REPOSITORY ANALYSIS ENDPOINTS ---" -ForegroundColor Magenta
+
+# 4.1 Get repository analysis
+$repoAnalysisRes = Request-Api -Uri "$baseUrl/assessments/$assessmentId/repository-analysis"
+Assert-Test -TestName "4.1 Get Repository Analysis (GET /assessments/{id}/repository-analysis)" -Condition ($repoAnalysisRes.StatusCode -eq 200 -and $repoAnalysisRes.Data.data.analysisStatus -eq "COMPLETED" -and $repoAnalysisRes.Data.data.sourceCodeStructure.controllers.Count -gt 0) -Details "Controllers found: $($repoAnalysisRes.Data.data.sourceCodeStructure.controllers -join ', '), Endpoints: $($repoAnalysisRes.Data.data.contentDetails.endpoints.Count)"
+
+# 4.2 Get repository analysis status
+$repoAnalysisStatusRes = Request-Api -Uri "$baseUrl/assessments/$assessmentId/repository-analysis/status"
+Assert-Test -TestName "4.2 Get Repository Analysis Status (GET /assessments/{id}/repository-analysis/status)" -Condition ($repoAnalysisStatusRes.StatusCode -eq 200 -and $repoAnalysisStatusRes.Data.data.status -eq "COMPLETED") -Details "Status: $($repoAnalysisStatusRes.Data.data.status)"
+
+# 5. FEATURE SPECIFICATION MODULE TESTS (MODULE 5)
+Write-Host "`n--- TESTING MODULE 5: FEATURE SPECIFICATION ENDPOINTS ---" -ForegroundColor Magenta
+
+# 5.1 Get feature specification
+$featureRes = Request-Api -Uri "$baseUrl/assessments/$assessmentId/feature"
+Assert-Test -TestName "5.1 Get Feature Specification (GET /assessments/{id}/feature)" -Condition ($featureRes.StatusCode -eq 200 -and $featureRes.Data.data.endpoint -eq "/api/notes/search" -and $featureRes.Data.data.requirements.Count -gt 0) -Details "Title: $($featureRes.Data.data.title), Target Endpoint: $($featureRes.Data.data.httpMethod) $($featureRes.Data.data.endpoint)"
+
+# 6. FILE EXPLORER MODULE TESTS (MODULE 6)
+Write-Host "`n--- TESTING MODULE 6: FILE EXPLORER ENDPOINTS ---" -ForegroundColor Magenta
+
+# 6.1 Get file tree
+$fileTreeRes = Request-Api -Uri "$baseUrl/assessments/$assessmentId/files"
+Assert-Test -TestName "6.1 Get File Tree (GET /assessments/{id}/files)" -Condition ($fileTreeRes.StatusCode -eq 200 -and $fileTreeRes.Data.data.Count -gt 0) -Details "Root items in file tree: $(($fileTreeRes.Data.data | ForEach-Object { $_.name }) -join ', ')"
+
+# 6.2 Get file content
+$fileContentRes = Request-Api -Uri "$baseUrl/assessments/$assessmentId/files/content?path=src/main/java/com/example/demo/controller/NoteController.java"
+Assert-Test -TestName "6.2 Get File Content (GET /assessments/{id}/files/content)" -Condition ($fileContentRes.StatusCode -eq 200 -and $fileContentRes.Data.data.content -match "NoteController") -Details "Retrieved file: $($fileContentRes.Data.data.path), Length: $($fileContentRes.Data.data.content.Length) chars"
+
+# 6.3 Save file content
+$saveFileBody = @{
+    path = "src/main/java/com/example/demo/controller/NoteController.java"
+    content = "// updated note controller content"
+} | ConvertTo-Json
+$saveFileRes = Request-Api -Uri "$baseUrl/assessments/$assessmentId/files/content" -Method PUT -Body $saveFileBody
+Assert-Test -TestName "6.3 Save File Content (PUT /assessments/{id}/files/content)" -Condition ($saveFileRes.StatusCode -eq 200 -and $saveFileRes.Data.success -eq $true) -Details "Saved Path: $($saveFileRes.Data.data.path), SavedAt: $($saveFileRes.Data.data.savedAt)"
+
+# 7. APPLICATION EXECUTION MODULE TESTS (MODULE 7)
+Write-Host "`n--- TESTING MODULE 7: EXECUTION ENDPOINTS ---" -ForegroundColor Magenta
+
+# 7.1 Run application
+$runRes = Request-Api -Uri "$baseUrl/assessments/$assessmentId/run" -Method POST
+Assert-Test -TestName "7.1 Run Application (POST /assessments/{id}/run)" -Condition ($runRes.StatusCode -eq 200 -and $runRes.Data.data.containerStatus -eq "RUNNING") -Details "Container Status: $($runRes.Data.data.containerStatus), App Status: $($runRes.Data.data.applicationStatus)"
+
+# 7.2 Get execution status
+$execStatusRes = Request-Api -Uri "$baseUrl/assessments/$assessmentId/execution/status"
+Assert-Test -TestName "7.2 Get Execution Status (GET /assessments/{id}/execution/status)" -Condition ($execStatusRes.StatusCode -eq 200 -and $execStatusRes.Data.data.buildStatus -eq "SUCCESS") -Details "Build Status: $($execStatusRes.Data.data.buildStatus)"
+
+# 7.3 Get execution logs
+$execLogsRes = Request-Api -Uri "$baseUrl/assessments/$assessmentId/execution/logs"
+Assert-Test -TestName "7.3 Get Execution Logs (GET /assessments/{id}/execution/logs)" -Condition ($execLogsRes.StatusCode -eq 200 -and $execLogsRes.Data.data.logs -match "Spring Boot") -Details "Logs Length: $($execLogsRes.Data.data.logs.Length) characters"
+
+# 7.4 Stop application
+$stopRes = Request-Api -Uri "$baseUrl/assessments/$assessmentId/stop" -Method POST
+Assert-Test -TestName "7.4 Stop Application (POST /assessments/{id}/stop)" -Condition ($stopRes.StatusCode -eq 200 -and $stopRes.Data.data.containerStatus -eq "STOPPED") -Details "Container Status: $($stopRes.Data.data.containerStatus)"
+
+# 8. EVALUATION & RESULTS MODULE TESTS (MODULE 8)
+Write-Host "`n--- TESTING MODULE 8: EVALUATION & RESULTS ENDPOINTS ---" -ForegroundColor Magenta
+
+# 8.1 Get candidate result
+$candidateResultRes = Request-Api -Uri "$baseUrl/assessments/$assessmentId/result"
+Assert-Test -TestName "8.1 Get Candidate Result (GET /assessments/{id}/result)" -Condition ($candidateResultRes.StatusCode -eq 200 -and $candidateResultRes.Data.data.score -ne $null) -Details "Score: $($candidateResultRes.Data.data.score), Passed: $($candidateResultRes.Data.data.testsPassed)/$($candidateResultRes.Data.data.totalTests)"
+
+# 8.2 Get recruiter assessment report
+$reportDetailRes = Request-Api -Uri "$baseUrl/assessments/$assessmentId/report"
+Assert-Test -TestName "8.2 Get Assessment Report (GET /assessments/{id}/report)" -Condition ($reportDetailRes.StatusCode -eq 200 -and $reportDetailRes.Data.data.candidateEmail -eq "rahul@example.com") -Details "Candidate: $($reportDetailRes.Data.data.candidateName), Score: $($reportDetailRes.Data.data.score)"
+
+# 8.3 Get test results breakdown
+$testResultsRes = Request-Api -Uri "$baseUrl/assessments/$assessmentId/test-results"
+Assert-Test -TestName "8.3 Get Test Results Breakdown (GET /assessments/{id}/test-results)" -Condition ($testResultsRes.StatusCode -eq 200 -and $testResultsRes.Data.data.results.Count -eq 5) -Details "Total: $($testResultsRes.Data.data.totalTests), Passed: $($testResultsRes.Data.data.passedTests), Failed: $($testResultsRes.Data.data.failedTests)"
+
+# 9. DASHBOARD MODULE TESTS (MODULE 9)
+Write-Host "`n--- TESTING MODULE 9: DASHBOARD ENDPOINTS ---" -ForegroundColor Magenta
+
+# 9.1 Recruiter Dashboard
+$recruiterDashRes = Request-Api -Uri "$baseUrl/recruiter/dashboard"
+Assert-Test -TestName "9.1 Recruiter Dashboard (GET /recruiter/dashboard)" -Condition ($recruiterDashRes.StatusCode -eq 200 -and $recruiterDashRes.Data.data.workspaceCount -ge 1) -Details "Workspaces: $($recruiterDashRes.Data.data.workspaceCount), Candidates: $($recruiterDashRes.Data.data.candidateCount), Assessments: $($recruiterDashRes.Data.data.assessmentCount)"
+
+# 9.2 Candidate Dashboard
+$candidateDashRes = Request-Api -Uri "$baseUrl/candidate/dashboard"
+Assert-Test -TestName "9.2 Candidate Dashboard (GET /candidate/dashboard)" -Condition ($candidateDashRes.StatusCode -eq 200) -Details "Scheduled: $($candidateDashRes.Data.data.scheduledAssessments.Count), Completed: $($candidateDashRes.Data.data.completedAssessments.Count)"
+
+# 10. REPORTS & SELECTED CANDIDATES MODULE TESTS (MODULE 10)
+Write-Host "`n--- TESTING MODULE 10: REPORTS & SELECTED CANDIDATES ENDPOINTS ---" -ForegroundColor Magenta
+
+# 10.1 Reports List
+$reportsListRes = Request-Api -Uri "$baseUrl/reports?workspaceId=$workspaceId"
+Assert-Test -TestName "10.1 List Reports (GET /reports?workspaceId={id})" -Condition ($reportsListRes.StatusCode -eq 200 -and $reportsListRes.Data.data.reports.Count -gt 0) -Details "Total Reports Found: $($reportsListRes.Data.data.totalCount)"
+
+# 10.2 Reports Summary
+$reportsSummaryRes = Request-Api -Uri "$baseUrl/reports/summary"
+Assert-Test -TestName "10.2 Reports Summary (GET /reports/summary)" -Condition ($reportsSummaryRes.StatusCode -eq 200) -Details "Total Completed: $($reportsSummaryRes.Data.data.totalCompleted), Pass Rate: $($reportsSummaryRes.Data.data.passRate)%"
+
+# 10.3 Report by ID
+$reportByIdRes = Request-Api -Uri "$baseUrl/reports/$assessmentId"
+Assert-Test -TestName "10.3 Report by ID (GET /reports/{id})" -Condition ($reportByIdRes.StatusCode -eq 200 -and $reportByIdRes.Data.data.assessmentId -eq $assessmentId) -Details "Candidate: $($reportByIdRes.Data.data.candidateName)"
+
+# 10.4 Select Candidate
+$selectCanBody = @{
+    candidateId = $candidateId
+    workspaceId = $workspaceId
+    assessmentId = $assessmentId
+    notes = "Exceptional performance in Spring Boot search endpoint implementation"
+} | ConvertTo-Json
+$selectCanRes = Request-Api -Uri "$baseUrl/selected-candidates" -Method POST -Body $selectCanBody
+Assert-Test -TestName "10.4 Select Candidate (POST /selected-candidates)" -Condition ($selectCanRes.Data.success -eq $true -and $selectCanRes.Data.data.candidateId -eq $candidateId) -Details "Selected Candidate: $($selectCanRes.Data.data.candidateName), Notes: $($selectCanRes.Data.data.selectionNotes)"
+$selectedId = $selectCanRes.Data.data.id
+
+# 10.5 Duplicate Selection 409 Conflict
+$dupSelectRes = Request-Api -Uri "$baseUrl/selected-candidates" -Method POST -Body $selectCanBody
+Assert-Test -TestName "10.5 Duplicate Selection 409 Conflict" -Condition ($dupSelectRes.StatusCode -eq 409 -and $dupSelectRes.Data.errorCode -eq "DUPLICATE_SELECTION") -Details "ErrorCode: $($dupSelectRes.Data.errorCode)"
+
+# 10.6 List Selected Candidates
+$listSelectedRes = Request-Api -Uri "$baseUrl/selected-candidates?workspaceId=$workspaceId"
+Assert-Test -TestName "10.6 List Selected Candidates (GET /selected-candidates?workspaceId={id})" -Condition ($listSelectedRes.StatusCode -eq 200 -and $listSelectedRes.Data.data.Count -gt 0) -Details "Total Selected Candidates: $($listSelectedRes.Data.data.Count)"
+
+# 10.7 Delete Selected Candidate
+$delSelectedRes = Request-Api -Uri "$baseUrl/selected-candidates/$selectedId" -Method DELETE
+Assert-Test -TestName "10.7 Remove Selected Candidate (DELETE /selected-candidates/{id})" -Condition ($delSelectedRes.StatusCode -eq 200 -and $delSelectedRes.Data.success -eq $true) -Details "Message: $($delSelectedRes.Data.message)"
+
+# 11. CLEANUP / REMOVAL TESTS
 Write-Host "`n--- TESTING REMOVAL & DELETION ENDPOINTS ---" -ForegroundColor Magenta
 
-# 4.1 Remove candidate from workspace
+# 11.1 Remove candidate from workspace
 $removeCanRes = Request-Api -Uri "$baseUrl/workspaces/$workspaceId/candidates/$candidateId" -Method DELETE
-Assert-Test -TestName "4.1 Remove Candidate from Workspace (DELETE /workspaces/{id}/candidates/{canId})" -Condition ($removeCanRes.StatusCode -eq 200 -and $removeCanRes.Data.success -eq $true) -Details "Message: $($removeCanRes.Data.message)"
+Assert-Test -TestName "11.1 Remove Candidate from Workspace (DELETE /workspaces/{id}/candidates/{canId})" -Condition ($removeCanRes.StatusCode -eq 200 -and $removeCanRes.Data.success -eq $true) -Details "Message: $($removeCanRes.Data.message)"
 
-# 4.2 Delete workspace
+# 11.2 Delete workspace
 $delWsRes = Request-Api -Uri "$baseUrl/workspaces/$workspaceId" -Method DELETE
-Assert-Test -TestName "4.2 Delete Workspace (DELETE /workspaces/{id})" -Condition ($delWsRes.StatusCode -eq 200 -and $delWsRes.Data.success -eq $true) -Details "Message: $($delWsRes.Data.message)"
+Assert-Test -TestName "11.2 Delete Workspace (DELETE /workspaces/{id})" -Condition ($delWsRes.StatusCode -eq 200 -and $delWsRes.Data.success -eq $true) -Details "Message: $($delWsRes.Data.message)"
 
 # SUMMARY
 Write-Host "`n=========================================" -ForegroundColor Cyan

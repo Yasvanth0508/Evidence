@@ -12,4 +12,5 @@ import java.util.UUID;
 public interface WorkspaceRepository extends JpaRepository<Workspace, UUID> {
     List<Workspace> findAllByRecruiterId(UUID recruiterId);
     Optional<Workspace> findByIdAndRecruiterId(UUID id, UUID recruiterId);
+    long countByRecruiterId(UUID recruiterId);
 }

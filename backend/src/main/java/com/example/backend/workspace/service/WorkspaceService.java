@@ -9,6 +9,14 @@ import com.example.backend.common.enums.WorkspaceStatus;
 import com.example.backend.common.exception.DuplicateResourceException;
 import com.example.backend.common.exception.ForbiddenException;
 import com.example.backend.common.exception.ResourceNotFoundException;
+import com.example.backend.analysis.repository.RepositoryAnalysisRepository;
+import com.example.backend.analysis.repository.RepositoryRecordRepository;
+import com.example.backend.evaluation.repository.SubmissionRepository;
+import com.example.backend.evaluation.repository.TestCaseRepository;
+import com.example.backend.evaluation.repository.TestResultRepository;
+import com.example.backend.execution.repository.ExecutionRepository;
+import com.example.backend.feature.repository.FeatureSpecificationRepository;
+import com.example.backend.selectedcandidate.repository.SelectedCandidateRepository;
 import com.example.backend.workspace.dto.*;
 import com.example.backend.workspace.entity.Workspace;
 import com.example.backend.workspace.entity.WorkspaceCandidate;
@@ -29,15 +37,39 @@ public class WorkspaceService {
     private final WorkspaceCandidateRepository workspaceCandidateRepository;
     private final UserRepository userRepository;
     private final AssessmentRepository assessmentRepository;
+    private final SelectedCandidateRepository selectedCandidateRepository;
+    private final ExecutionRepository executionRepository;
+    private final SubmissionRepository submissionRepository;
+    private final TestCaseRepository testCaseRepository;
+    private final TestResultRepository testResultRepository;
+    private final RepositoryAnalysisRepository repositoryAnalysisRepository;
+    private final RepositoryRecordRepository repositoryRecordRepository;
+    private final FeatureSpecificationRepository featureSpecificationRepository;
 
     public WorkspaceService(WorkspaceRepository workspaceRepository,
                             WorkspaceCandidateRepository workspaceCandidateRepository,
                             UserRepository userRepository,
-                            AssessmentRepository assessmentRepository) {
+                            AssessmentRepository assessmentRepository,
+                            SelectedCandidateRepository selectedCandidateRepository,
+                            ExecutionRepository executionRepository,
+                            SubmissionRepository submissionRepository,
+                            TestCaseRepository testCaseRepository,
+                            TestResultRepository testResultRepository,
+                            RepositoryAnalysisRepository repositoryAnalysisRepository,
+                            RepositoryRecordRepository repositoryRecordRepository,
+                            FeatureSpecificationRepository featureSpecificationRepository) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceCandidateRepository = workspaceCandidateRepository;
         this.userRepository = userRepository;
         this.assessmentRepository = assessmentRepository;
+        this.selectedCandidateRepository = selectedCandidateRepository;
+        this.executionRepository = executionRepository;
+        this.submissionRepository = submissionRepository;
+        this.testCaseRepository = testCaseRepository;
+        this.testResultRepository = testResultRepository;
+        this.repositoryAnalysisRepository = repositoryAnalysisRepository;
+        this.repositoryRecordRepository = repositoryRecordRepository;
+        this.featureSpecificationRepository = featureSpecificationRepository;
     }
 
     public WorkspaceResponse createWorkspace(UUID recruiterId, CreateWorkspaceRequest request) {
@@ -85,8 +117,29 @@ public class WorkspaceService {
     public void deleteWorkspace(UUID recruiterId, UUID workspaceId) {
         Workspace workspace = getWorkspaceAndVerifyOwnership(recruiterId, workspaceId);
 
-        // Clean up associated assessments
+        // Clean up selected candidates
+        var selectedCandidates = selectedCandidateRepository.findAllByWorkspaceId(workspace.getId());
+        selectedCandidateRepository.deleteAll(selectedCandidates);
+
+        // Clean up associated assessments and their children
         List<Assessment> assessments = assessmentRepository.findAllByWorkspaceId(workspace.getId());
+        for (Assessment a : assessments) {
+            var testResults = testResultRepository.findAllByAssessmentId(a.getId());
+            testResultRepository.deleteAll(testResults);
+
+            var testCases = testCaseRepository.findAllByAssessmentIdOrderByTestCaseNumberAsc(a.getId());
+            testCaseRepository.deleteAll(testCases);
+
+            var executions = executionRepository.findAllByAssessmentId(a.getId());
+            executionRepository.deleteAll(executions);
+
+            var submissions = submissionRepository.findAllByAssessmentId(a.getId());
+            submissionRepository.deleteAll(submissions);
+
+            repositoryAnalysisRepository.findByAssessmentId(a.getId()).ifPresent(repositoryAnalysisRepository::delete);
+            repositoryRecordRepository.findByAssessmentId(a.getId()).ifPresent(repositoryRecordRepository::delete);
+            featureSpecificationRepository.findByAssessmentId(a.getId()).ifPresent(featureSpecificationRepository::delete);
+        }
         assessmentRepository.deleteAll(assessments);
 
         // Clean up workspace candidate enrollments
@@ -144,6 +197,9 @@ public class WorkspaceService {
                         "Candidate is not enrolled in this workspace.",
                         "CANDIDATE_NOT_FOUND"
                 ));
+
+        selectedCandidateRepository.findByWorkspaceIdAndCandidateId(workspace.getId(), candidateId)
+                .ifPresent(selectedCandidateRepository::delete);
 
         workspaceCandidateRepository.delete(workspaceCandidate);
     }

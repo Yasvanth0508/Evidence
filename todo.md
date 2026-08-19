@@ -470,19 +470,19 @@ POST /assessments/{id}/submit                → 200 EVALUATING
 
 > Stub endpoints returning mock analysis data.
 
-- [ ] **4.1 — Entities** — `analysis/entity/`
+- [x] **4.1 — Entities** — `analysis/entity/`
   - `RepositoryAnalysis`: extends `BaseEntity`, `@OneToOne` → Assessment (UNIQUE), `analysisStatus`, JSON fields
   - `RepositoryRecord`: extends `BaseEntity`, `@OneToOne` → Assessment (UNIQUE), `originalRepositoryPath`, `candidateRepositoryPath`
 
-- [ ] **4.2 — Repositories** — `analysis/repository/`
+- [x] **4.2 — Repositories** — `analysis/repository/`
   - `RepositoryAnalysisRepository`: `findByAssessmentId(UUID)`
   - `RepositoryRecordRepository`: `findByAssessmentId(UUID)`
 
-- [ ] **4.3 — DTO** — `analysis/dto/RepositoryAnalysisResponse.java`
+- [x] **4.3 — DTO** — `analysis/dto/RepositoryAnalysisResponse.java`
 
-- [ ] **4.4 — `RepositoryAnalysisService`** — 🟡 DUMMY: returns hardcoded mock data
+- [x] **4.4 — `RepositoryAnalysisService`** — 🟡 DUMMY: returns hardcoded mock data
 
-- [ ] **4.5 — `RepositoryAnalysisController`**
+- [x] **4.5 — `RepositoryAnalysisController`**
   - `GET /api/v1/assessments/{assessmentId}/repository-analysis` → 🟡 dummy → 200
   - `GET /api/v1/assessments/{assessmentId}/repository-analysis/status` → 🟡 dummy → 200
 
@@ -492,17 +492,17 @@ POST /assessments/{id}/submit                → 200 EVALUATING
 
 ### Module 5: Feature Specification (DUMMY)
 
-- [ ] **5.1 — Entity** — `feature/entity/FeatureSpecification.java`
+- [x] **5.1 — Entity** — `feature/entity/FeatureSpecification.java`
   - Extends `BaseEntity`, `@OneToOne` → Assessment (UNIQUE)
   - Fields: `title`, `description`, `requirements` (JSON), `endpoint`, `httpMethod`, `requestSpecification` (JSON), `responseSpecification` (JSON), `constraints` (JSON)
 
-- [ ] **5.2 — Repository** — `feature/repository/FeatureSpecificationRepository.java`
+- [x] **5.2 — Repository** — `feature/repository/FeatureSpecificationRepository.java`
 
-- [ ] **5.3 — DTO** — `feature/dto/FeatureSpecificationResponse.java`
+- [x] **5.3 — DTO** — `feature/dto/FeatureSpecificationResponse.java`
 
-- [ ] **5.4 — `FeatureSpecificationService`** — 🟡 DUMMY: returns hardcoded mock feature
+- [x] **5.4 — `FeatureSpecificationService`** — 🟡 DUMMY: returns hardcoded mock feature
 
-- [ ] **5.5 — `FeatureController`**
+- [x] **5.5 — `FeatureController`**
   - `GET /api/v1/assessments/{assessmentId}/feature` → 🟡 dummy → 200
 
 #### ✅ Checkpoint: Returns mock feature JSON
@@ -513,12 +513,12 @@ POST /assessments/{id}/submit                → 200 EVALUATING
 
 > No entities — just DTOs, stub service, and controller.
 
-- [ ] **6.1 — DTOs** — `fileexplorer/dto/`
+- [x] **6.1 — DTOs** — `fileexplorer/dto/`
   - `FileTreeResponse`, `FileContentResponse`, `SaveFileRequest`
 
-- [ ] **6.2 — `FileExplorerService`** — 🟡 DUMMY: mock file tree, content, save
+- [x] **6.2 — `FileExplorerService`** — 🟡 DUMMY: mock file tree, content, save
 
-- [ ] **6.3 — `FileExplorerController`**
+- [x] **6.3 — `FileExplorerController`**
   - `GET  /api/v1/assessments/{assessmentId}/files` → 🟡 dummy → 200
   - `GET  /api/v1/assessments/{assessmentId}/files/content?path=` → 🟡 dummy → 200
   - `PUT  /api/v1/assessments/{assessmentId}/files/content` → 🟡 dummy → 200
@@ -529,17 +529,17 @@ POST /assessments/{id}/submit                → 200 EVALUATING
 
 ### Module 7: Execution (DUMMY)
 
-- [ ] **7.1 — Entity** — `execution/entity/Execution.java`
+- [x] **7.1 — Entity** — `execution/entity/Execution.java`
   - Extends `BaseEntity`, `@ManyToOne` → Assessment, `@ManyToOne` → Submission (nullable)
   - Fields: `containerId`, `buildStatus`, `containerStatus`, `applicationStatus`, `startedAt`, `stoppedAt`
 
-- [ ] **7.2 — Repository** — `execution/repository/ExecutionRepository.java`
+- [x] **7.2 — Repository** — `execution/repository/ExecutionRepository.java`
 
-- [ ] **7.3 — DTOs** — `execution/dto/`
+- [x] **7.3 — DTOs** — `execution/dto/`
 
-- [ ] **7.4 — `ExecutionService`** — 🟡 DUMMY: mock run/stop/status/logs
+- [x] **7.4 — `ExecutionService`** — 🟡 DUMMY: mock run/stop/status/logs
 
-- [ ] **7.5 — `ExecutionController`**
+- [x] **7.5 — `ExecutionController`**
   - `POST /api/v1/assessments/{assessmentId}/run` → 🟡 dummy → 200
   - `POST /api/v1/assessments/{assessmentId}/stop` → 🟡 dummy → 200
   - `GET  /api/v1/assessments/{assessmentId}/execution/status` → 🟡 dummy → 200
@@ -551,20 +551,20 @@ POST /assessments/{id}/submit                → 200 EVALUATING
 
 ### Module 8: Evaluation & Results (DUMMY)
 
-- [ ] **8.1 — Entities** — `evaluation/entity/`
+- [x] **8.1 — Entities** — `evaluation/entity/`
   - `Submission`: `@ManyToOne` → Assessment, `candidateRepositoryPath`, `submittedAt`, `status`
   - `TestCase`: `@ManyToOne` → Assessment, `testCaseNumber`, `httpMethod`, `endpoint`, `requestData`, `expectedStatusCode`, `expectedResponse`, `assertions`. Unique: `(assessment_id, test_case_number)`
   - `TestResult`: `@ManyToOne` → TestCase, `@ManyToOne` → Execution, `status`, `actualStatusCode`, `actualResponse`, `executionTimeMs`, `failureReason`
 
-- [ ] **8.2 — Repositories** — `evaluation/repository/`
+- [x] **8.2 — Repositories** — `evaluation/repository/`
   - `SubmissionRepository`, `TestCaseRepository`, `TestResultRepository`
 
-- [ ] **8.3 — DTOs** — `evaluation/dto/`
+- [x] **8.3 — DTOs** — `evaluation/dto/`
   - `SubmissionResponse`, `CandidateResultResponse`, `AssessmentReportResponse`, `TestResultResponse`
 
-- [ ] **8.4 — `EvaluationService`** — 🟡 DUMMY: mock scores/results
+- [x] **8.4 — `EvaluationService`** — 🟡 DUMMY: mock scores/results
 
-- [ ] **8.5 — `EvaluationController`**
+- [x] **8.5 — `EvaluationController`**
   - `GET /api/v1/assessments/{assessmentId}/result` → candidate → 🟡 dummy → 200
   - `GET /api/v1/assessments/{assessmentId}/report` → recruiter → 🟡 dummy → 200
   - `GET /api/v1/assessments/{assessmentId}/test-results` → recruiter → 🟡 dummy → 200
@@ -577,17 +577,17 @@ POST /assessments/{id}/submit                → 200 EVALUATING
 
 > Real data — aggregates from workspace, assessment, and candidate tables.
 
-- [ ] **9.1 — DTOs** — `dashboard/dto/`
+- [x] **9.1 — DTOs** — `dashboard/dto/`
   - `RecruiterDashboardResponse`: `workspaceCount`, `candidateCount`, `assessmentCount`, `activeAssessments`, `completedAssessments`
   - `CandidateDashboardResponse`: `scheduledAssessments` list, `completedAssessments` list
   - `ScheduledAssessmentDto`: `assessmentId`, `workspaceName`, `scheduledStartAt`, `scheduledEndAt`, `difficulty`, `status`
   - `CompletedAssessmentDto`: `assessmentId`, `workspaceName`, `completedAt`, `score`, `status`
 
-- [ ] **9.2 — `RecruiterDashboardService`** — count workspaces, candidates, assessments
+- [x] **9.2 — `RecruiterDashboardService`** — count workspaces, candidates, assessments
 
-- [ ] **9.3 — `CandidateDashboardService`** — partition assessments into scheduled vs completed
+- [x] **9.3 — `CandidateDashboardService`** — partition assessments into scheduled vs completed
 
-- [ ] **9.4 — Controllers** — `dashboard/controller/`
+- [x] **9.4 — Controllers** — `dashboard/controller/`
   - `GET /api/v1/recruiter/dashboard` → 200
   - `GET /api/v1/candidate/dashboard` → 200
 
@@ -599,29 +599,32 @@ POST /assessments/{id}/submit                → 200 EVALUATING
 
 > Real data — query assessments with filters, pagination, and candidate aggregation.
 
-- [ ] **10.1 — Report DTOs** — `report/dto/`
+- [x] **10.1 — Report DTOs** — `report/dto/`
   - `ReportListResponse` (paginated), `ReportSummaryResponse`
 
-- [ ] **10.2 — `ReportService`**
+- [x] **10.2 — `ReportService`**
   - `getReports(UUID recruiterId, filters, pagination)`
   - `getReportById(UUID recruiterId, UUID reportId)`
   - `getReportSummary(UUID recruiterId)`
 
-- [ ] **10.3 — `ReportController`**
+- [x] **10.3 — `ReportController`**
   - `GET /api/v1/reports?workspaceId=&status=&page=&size=` → 200
   - `GET /api/v1/reports/{reportId}` → 200
   - `GET /api/v1/reports/summary` → 200
 
-- [ ] **10.4 — Selected Candidate DTOs** — `selectedcandidate/dto/`
-  - `SelectedCandidateListResponse`, `SelectedCandidateDetailResponse`
+- [x] **10.4 — Selected Candidate DTOs & Entity** — `selectedcandidate/`
+  - `SelectedCandidate` entity (`selected_candidates` table with unique `(workspace_id, candidate_id)`)
+  - `SelectedCandidateRepository`, `SelectCandidateRequest`, `SelectedCandidateItemDto`
 
-- [ ] **10.5 — `SelectedCandidateService`**
-  - `getSelectedCandidates(UUID recruiterId)`
-  - `getSelectedCandidateDetail(UUID recruiterId, UUID candidateId)`
+- [x] **10.5 — `SelectedCandidateService`**
+  - `selectCandidate(SelectCandidateRequest)`
+  - `getSelectedCandidates(UUID workspaceId)`
+  - `removeSelectedCandidate(UUID id)`
 
-- [ ] **10.6 — `SelectedCandidateController`**
-  - `GET /api/v1/selected-candidates` → 200
-  - `GET /api/v1/selected-candidates/{candidateId}` → 200
+- [x] **10.6 — `SelectedCandidateController`**
+  - `POST   /api/v1/selected-candidates` → 201
+  - `GET    /api/v1/selected-candidates?workspaceId=` → 200
+  - `DELETE /api/v1/selected-candidates/{id}` → 200
 
 #### ✅ Checkpoint: Reports and selected candidates return real DB data
 

@@ -27,6 +27,14 @@ public class ApiResponse<T> {
         return new ApiResponse<>(true, message, data);
     }
 
+    public static <T> ApiResponse<T> created(String message, T data) {
+        return new ApiResponse<>(true, message, data);
+    }
+
+    public static <T> ApiResponse<T> created(T data) {
+        return new ApiResponse<>(true, "Resource created successfully", data);
+    }
+
     public boolean isSuccess() {
         return success;
     }

@@ -151,6 +151,76 @@ users (id, name, email [UNIQUE], password, role)
 
 ---
 
+### Module 4: Repository Analysis (DUMMY)
+
+| Method | Endpoint | Description | Status Code |
+|:---|:---|:---|:---|
+| `GET` | `/api/v1/assessments/{assessmentId}/repository-analysis` | Get analyzed project & source code metadata | `200 OK` |
+| `GET` | `/api/v1/assessments/{assessmentId}/repository-analysis/status` | Get analysis status (`COMPLETED`) | `200 OK` |
+
+---
+
+### Module 5: Feature Specification (DUMMY)
+
+| Method | Endpoint | Description | Status Code |
+|:---|:---|:---|:---|
+| `GET` | `/api/v1/assessments/{assessmentId}/feature` | Get target feature prompt, requirements & constraints | `200 OK` |
+
+---
+
+### Module 6: File Explorer (DUMMY)
+
+| Method | Endpoint | Description | Status Code |
+|:---|:---|:---|:---|
+| `GET` | `/api/v1/assessments/{assessmentId}/files` | Get project file tree | `200 OK` |
+| `GET` | `/api/v1/assessments/{assessmentId}/files/content?path={path}` | Get file source code content | `200 OK` |
+| `PUT` | `/api/v1/assessments/{assessmentId}/files/content` | Save file source code edits | `200 OK` |
+
+---
+
+### Module 7: Application Execution (DUMMY)
+
+| Method | Endpoint | Description | Status Code |
+|:---|:---|:---|:---|
+| `POST` | `/api/v1/assessments/{assessmentId}/run` | Run / compile candidate application | `200 OK` |
+| `POST` | `/api/v1/assessments/{assessmentId}/stop` | Stop running application container | `200 OK` |
+| `GET` | `/api/v1/assessments/{assessmentId}/execution/status` | Get build, container & app execution status | `200 OK` |
+| `GET` | `/api/v1/assessments/{assessmentId}/execution/logs` | Stream / fetch application startup and console logs | `200 OK` |
+
+---
+
+### Module 8: Evaluation & Results (DUMMY)
+
+| Method | Endpoint | Description | Status Code |
+|:---|:---|:---|:---|
+| `GET` | `/api/v1/assessments/{assessmentId}/result` | Candidate view: score, status & test summary | `200 OK` |
+| `GET` | `/api/v1/assessments/{assessmentId}/report` | Recruiter view: comprehensive assessment grading report | `200 OK` |
+| `GET` | `/api/v1/assessments/{assessmentId}/test-results` | Detailed breakdown of individual test case assertions | `200 OK` |
+
+---
+
+### Module 9: Dashboards (Real Aggregate Data)
+
+| Method | Endpoint | Description | Status Code |
+|:---|:---|:---|:---|
+| `GET` | `/api/v1/recruiter/dashboard` | Recruiter metrics (workspace, candidate, assessment counts) | `200 OK` |
+| `GET` | `/api/v1/candidate/dashboard` | Candidate dashboard (scheduled & completed assessment list) | `200 OK` |
+
+---
+
+### Module 10: Reports & Selected Candidates
+
+| Method | Endpoint | Description | Status Code |
+|:---|:---|:---|:---|
+| `GET` | `/api/v1/reports?workspaceId=&status=&page=&size=` | Paginated assessments list with filters | `200 OK` |
+| `GET` | `/api/v1/reports/{reportId}` | Detailed recruiter assessment report | `200 OK` |
+| `GET` | `/api/v1/reports/summary` | Aggregate metrics (pass rate, avg/high/low score) | `200 OK` |
+| `POST` | `/api/v1/selected-candidates` | Mark candidate as selected in a workspace | `201 Created` |
+| `GET` | `/api/v1/selected-candidates?workspaceId=` | List selected candidates for recruiter/workspace | `200 OK` |
+| `DELETE` | `/api/v1/selected-candidates/{id}` | Remove candidate from selected candidates list | `200 OK` |
+
+---
+
 ## 📋 API Conventions & Error Handling
 
 ### 1. Success Envelope Format

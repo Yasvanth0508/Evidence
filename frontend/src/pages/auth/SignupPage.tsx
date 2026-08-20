@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,6 @@ import { useAuthStore } from "@/store/authStore";
 import {
   User,
   Mail,
-  Building2,
-  Users,
   Lock,
   Eye,
   EyeOff,
@@ -17,28 +15,41 @@ import {
   ShieldCheck,
   UserPlus,
   Loader2,
+  Briefcase,
+  Code2,
 } from "lucide-react";
-import {
-  GithubIcon,
-  LinkedinIcon,
-  TwitterIcon,
-  YoutubeIcon,
-} from "@/components/ui/social-icons";
 
 export const SignupPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const loginToStore = useAuthStore((state) => state.login);
+
+  const roleParam = searchParams.get("role");
+  const [role, setRole] = useState<"RECRUITER" | "CANDIDATE">(
+    roleParam === "candidate" ? "CANDIDATE" : "RECRUITER"
+  );
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [company, setCompany] = useState("");
-  const [role, setRole] = useState<"RECRUITER" | "CANDIDATE">("RECRUITER");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [password, setPassword] = useState("StrongPassword123");
+  const [confirmPassword, setConfirmPassword] = useState("StrongPassword123");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    if (roleParam === "candidate") {
+      setRole("CANDIDATE");
+    } else if (roleParam === "recruiter") {
+      setRole("RECRUITER");
+    }
+  }, [roleParam]);
+
+  const handleRoleSelect = (selected: "RECRUITER" | "CANDIDATE") => {
+    setRole(selected);
+    setSearchParams({ role: selected.toLowerCase() });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +68,7 @@ export const SignupPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await mockAuthService.signup(fullName, email, role, company);
+      const response = await mockAuthService.signup(fullName, email, role);
       if (response.success && response.data) {
         loginToStore(response.data.user, response.data.token);
         navigate("/dashboard");
@@ -72,28 +83,29 @@ export const SignupPage = () => {
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-between font-sans">
       {/* 1. Header */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <Logo size="md" />
 
           <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-600">
-            <Link to="/" className="hover:text-gray-900 transition-colors">Product</Link>
-            <Link to="/" className="hover:text-gray-900 transition-colors">How It Works</Link>
-            <Link to="/" className="hover:text-gray-900 transition-colors">Features</Link>
-            <Link to="/" className="hover:text-gray-900 transition-colors">For Companies</Link>
-            <Link to="/" className="hover:text-gray-900 transition-colors">Pricing</Link>
-            <Link to="/" className="hover:text-gray-900 transition-colors">Resources</Link>
+            <Link to="/#overview" className="hover:text-gray-900 transition-colors">
+              Platform Overview
+            </Link>
+            <Link to="/#how-it-works" className="hover:text-gray-900 transition-colors">
+              How It Works
+            </Link>
+            <Link to="/#architecture" className="hover:text-gray-900 transition-colors">
+              Key Capabilities
+            </Link>
+            <Link to="/#portals" className="hover:text-gray-900 transition-colors">
+              Role Portals
+            </Link>
           </nav>
 
-          <div className="flex items-center space-x-4">
-            <Link to="/login">
+          <div className="flex items-center space-x-3">
+            <Link to={`/login?role=${role.toLowerCase()}`}>
               <Button variant="outline" size="sm" className="font-semibold text-gray-700">
-                Log in
-              </Button>
-            </Link>
-            <Link to="/signup">
-              <Button size="sm" className="font-semibold shadow-sm">
-                Get Started
+                Sign In
               </Button>
             </Link>
           </div>
@@ -112,13 +124,43 @@ export const SignupPage = () => {
             </div>
 
             {/* Title */}
-            <div className="text-center space-y-1.5 mb-8">
+            <div className="text-center space-y-1 mb-6">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
-                Create your account
+                Create {role === "RECRUITER" ? "Recruiter" : "Candidate"} Account
               </h1>
               <p className="text-xs sm:text-sm text-gray-500">
-                Join EVIDENCE and start assessing real-world skills.
+                {role === "RECRUITER"
+                  ? "Create workspaces and configure project-specific technical assessments"
+                  : "Sign up to participate in assigned Java Spring Boot assessments"}
               </p>
+            </div>
+
+            {/* Role Switcher Tabs */}
+            <div className="flex p-1 bg-gray-100/80 rounded-2xl mb-6">
+              <button
+                type="button"
+                onClick={() => handleRoleSelect("RECRUITER")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-xl transition-all ${
+                  role === "RECRUITER"
+                    ? "bg-white text-[#F05323] shadow-xs"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5" />
+                I am a Recruiter
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRoleSelect("CANDIDATE")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-xl transition-all ${
+                  role === "CANDIDATE"
+                    ? "bg-white text-emerald-600 shadow-xs"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <Code2 className="w-3.5 h-3.5" />
+                I am a Candidate
+              </button>
             </div>
 
             {errorMessage && (
@@ -136,7 +178,7 @@ export const SignupPage = () => {
                 <Input
                   type="text"
                   required
-                  placeholder="Enter your full name"
+                  placeholder={role === "RECRUITER" ? "e.g. John Recruiter" : "e.g. Rahul Kumar"}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   icon={<User className="w-4 h-4 text-gray-400" />}
@@ -151,48 +193,16 @@ export const SignupPage = () => {
                 <Input
                   type="email"
                   required
-                  placeholder="Enter your email address"
+                  placeholder={role === "RECRUITER" ? "john@company.com" : "rahul@example.com"}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   icon={<Mail className="w-4 h-4 text-gray-400" />}
                 />
-              </div>
-
-              {/* Company / Organization (Optional) */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-700 block">
-                  Company / Organization <span className="text-gray-400 font-normal">(Optional)</span>
-                </label>
-                <Input
-                  type="text"
-                  placeholder="Enter your company or organization name"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  icon={<Building2 className="w-4 h-4 text-gray-400" />}
-                />
-              </div>
-
-              {/* Role Selection */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-700 block">
-                  Role
-                </label>
-                <div className="relative">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                    <Users className="w-4 h-4" />
-                  </div>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as "RECRUITER" | "CANDIDATE")}
-                    className="flex h-11 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-4 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F05323] focus:border-[#F05323] appearance-none"
-                  >
-                    <option value="RECRUITER">Recruiter (Hire & Assess Candidates)</option>
-                    <option value="CANDIDATE">Candidate (Take Technical Assessments)</option>
-                  </select>
-                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs">
-                    ▼
-                  </div>
-                </div>
+                <p className="text-[11px] text-gray-400">
+                  {role === "CANDIDATE"
+                    ? "Your email is the unique identifier recruiters will use to assign assessments."
+                    : "Used for accessing your recruiter workspaces and candidate reports."}
+                </p>
               </div>
 
               {/* Password */}
@@ -256,7 +266,7 @@ export const SignupPage = () => {
                 type="submit"
                 disabled={isLoading}
                 size="lg"
-                className="w-full font-semibold gap-2 shadow-sm mt-4"
+                className="w-full font-semibold gap-2 shadow-xs mt-4 bg-[#F05323] hover:bg-[#d94417]"
               >
                 {isLoading ? (
                   <>
@@ -264,7 +274,7 @@ export const SignupPage = () => {
                   </>
                 ) : (
                   <>
-                    Create Account <ArrowRight className="w-4 h-4" />
+                    Sign Up as {role === "RECRUITER" ? "Recruiter" : "Candidate"} <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </Button>
@@ -283,10 +293,10 @@ export const SignupPage = () => {
             <div className="text-center text-xs text-gray-500">
               Already have an account?{" "}
               <Link
-                to="/login"
+                to={`/login?role=${role.toLowerCase()}`}
                 className="font-bold text-[#F05323] hover:underline"
               >
-                Log in
+                Sign In
               </Link>
             </div>
           </div>
@@ -294,58 +304,19 @@ export const SignupPage = () => {
           {/* Security Badge */}
           <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
             <ShieldCheck className="w-4 h-4 text-gray-400" />
-            <span>Secured with industry-standard encryption</span>
+            <span>Secured with role-based access control</span>
           </div>
         </div>
       </main>
 
       {/* 3. Footer */}
-      <footer className="bg-white border-t border-gray-200 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-8">
-            <div className="col-span-2 space-y-2">
-              <Logo size="sm" />
-              <p className="text-xs text-gray-500 max-w-sm">
-                The leading AI-powered platform for real-world technical assessments.
-              </p>
-              <div className="flex space-x-3 pt-1 text-gray-400">
-                <a href="#" className="hover:text-gray-900"><GithubIcon className="w-4 h-4" /></a>
-                <a href="#" className="hover:text-gray-900"><LinkedinIcon className="w-4 h-4" /></a>
-                <a href="#" className="hover:text-gray-900"><TwitterIcon className="w-4 h-4" /></a>
-                <a href="#" className="hover:text-gray-900"><YoutubeIcon className="w-4 h-4" /></a>
-              </div>
-            </div>
-            <div>
-              <h5 className="text-xs font-bold text-gray-900 uppercase">Product</h5>
-              <ul className="text-xs text-gray-500 space-y-1.5 mt-2">
-                <li><a href="#" className="hover:text-gray-900">Features</a></li>
-                <li><a href="#" className="hover:text-gray-900">How It Works</a></li>
-                <li><a href="#" className="hover:text-gray-900">Pricing</a></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="text-xs font-bold text-gray-900 uppercase">Company</h5>
-              <ul className="text-xs text-gray-500 space-y-1.5 mt-2">
-                <li><a href="#" className="hover:text-gray-900">About Us</a></li>
-                <li><a href="#" className="hover:text-gray-900">Careers</a></li>
-                <li><a href="#" className="hover:text-gray-900">Contact Us</a></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="text-xs font-bold text-gray-900 uppercase">Resources</h5>
-              <ul className="text-xs text-gray-500 space-y-1.5 mt-2">
-                <li><a href="#" className="hover:text-gray-900">Docs</a></li>
-                <li><a href="#" className="hover:text-gray-900">Help Center</a></li>
-                <li><a href="#" className="hover:text-gray-900">Guides</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-gray-100 pt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-400">
-            <p>© 2026 EVIDENCE. All rights reserved.</p>
-            <div className="flex space-x-4">
-              <a href="#" className="hover:text-gray-600">Privacy Policy</a>
-              <a href="#" className="hover:text-gray-600">Terms of Service</a>
-            </div>
+      <footer className="bg-white border-t border-gray-200 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-400 gap-4">
+          <p>© 2026 EVIDENCE. Recruiter & Candidate Technical Assessment Platform.</p>
+          <div className="flex space-x-6">
+            <Link to="/#overview" className="hover:text-gray-600">Home</Link>
+            <Link to="/#how-it-works" className="hover:text-gray-600">How It Works</Link>
+            <Link to="/#portals" className="hover:text-gray-600">Role Portals</Link>
           </div>
         </div>
       </footer>

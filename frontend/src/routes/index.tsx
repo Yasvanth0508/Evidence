@@ -4,7 +4,13 @@ import { LoginPage } from "@/pages/auth/LoginPage";
 import { SignupPage } from "@/pages/auth/SignupPage";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { DashboardOverview } from "@/pages/dashboard/DashboardOverview";
+import { WorkspacesPage } from "@/pages/dashboard/WorkspacesPage";
+import { WorkspaceDetailPage } from "@/pages/dashboard/WorkspaceDetailPage";
+import { CandidateDetailPage } from "@/pages/dashboard/CandidateDetailPage";
+import { ReportsPage } from "@/pages/dashboard/ReportsPage";
+import { SelectedCandidatesPage } from "@/pages/dashboard/SelectedCandidatesPage";
 import { CandidateReport } from "@/pages/dashboard/CandidateReport";
+import { CandidateDashboard } from "@/pages/candidate/CandidateDashboard";
 import { AssessmentWorkspace } from "@/pages/assessment/AssessmentWorkspace";
 
 export const router = createBrowserRouter([
@@ -29,18 +35,42 @@ export const router = createBrowserRouter([
         element: <DashboardOverview />,
       },
       {
-        path: "assessments",
-        element: <DashboardOverview />,
+        path: "workspaces",
+        element: <WorkspacesPage />,
       },
       {
-        path: "candidates",
-        element: <DashboardOverview />,
+        path: "workspaces/:workspaceId",
+        element: <WorkspaceDetailPage />,
+      },
+      {
+        path: "workspaces/:workspaceId/candidates/:candidateId",
+        element: <CandidateDetailPage />,
+      },
+      {
+        path: "reports",
+        element: <ReportsPage />,
+      },
+      {
+        path: "selected-candidates",
+        element: <SelectedCandidatesPage />,
       },
       {
         path: "candidates/:id",
         element: <CandidateReport />,
       },
+      {
+        path: "*",
+        element: <Navigate to="/dashboard" replace />,
+      },
     ],
+  },
+  {
+    path: "/candidate",
+    element: <CandidateDashboard />,
+  },
+  {
+    path: "/candidate/dashboard",
+    element: <CandidateDashboard />,
   },
   {
     path: "/assessment/:id",

@@ -4,29 +4,20 @@ import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/authStore";
 import {
   LayoutDashboard,
-  FileCheck2,
-  Users2,
   FolderGit2,
-  HelpCircle,
-  UserCog,
   FileSpreadsheet,
-  Blocks,
-  Settings,
+  UserCheck2,
   LogOut,
   UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Exactly 4 main navigation options required for HR Dashboard
 const NAV_ITEMS = [
-  { label: "Overview", icon: LayoutDashboard, path: "/dashboard" },
-  { label: "Assessments", icon: FileCheck2, path: "/dashboard/assessments" },
-  { label: "Candidates", icon: Users2, path: "/dashboard/candidates" },
-  { label: "Projects", icon: FolderGit2, path: "/dashboard/projects" },
-  { label: "Question Bank", icon: HelpCircle, path: "/dashboard/questions" },
-  { label: "Users", icon: UserCog, path: "/dashboard/users" },
-  { label: "Reports", icon: FileSpreadsheet, path: "/dashboard/reports" },
-  { label: "Integrations", icon: Blocks, path: "/dashboard/integrations" },
-  { label: "Settings", icon: Settings, path: "/dashboard/settings" },
+  { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard", exact: true },
+  { label: "Workspace", icon: FolderGit2, path: "/dashboard/workspaces", exact: false },
+  { label: "Reports", icon: FileSpreadsheet, path: "/dashboard/reports", exact: false },
+  { label: "Selected Candidates", icon: UserCheck2, path: "/dashboard/selected-candidates", exact: false },
 ];
 
 export const Sidebar = () => {
@@ -36,7 +27,7 @@ export const Sidebar = () => {
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    navigate("/login?role=recruiter");
   };
 
   return (
@@ -47,22 +38,22 @@ export const Sidebar = () => {
           <Logo size="md" />
         </div>
 
-        {/* 2. Navigation Menu */}
-        <nav className="p-4 space-y-1.5 overflow-y-auto max-h-[calc(100vh-280px)]">
+        {/* 2. Navigation Menu - Exactly 4 Main Options */}
+        <nav className="p-4 space-y-1.5 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
-            const isActive =
-              location.pathname === item.path ||
-              (item.path !== "/dashboard" && location.pathname.startsWith(item.path));
+            const isActive = item.exact
+              ? location.pathname === item.path
+              : location.pathname.startsWith(item.path);
 
             return (
               <Link
                 key={item.label}
-                to={item.path === "/dashboard" || item.path === "/dashboard/candidates" ? item.path : "/dashboard"}
+                to={item.path}
                 className={cn(
-                  "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all group",
+                  "flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all group",
                   isActive
-                    ? "bg-orange-50/80 text-[#F05323] font-semibold"
+                    ? "bg-orange-50 text-[#F05323] font-bold shadow-2xs border border-orange-200/60"
                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                 )}
               >
@@ -81,17 +72,20 @@ export const Sidebar = () => {
 
       {/* 3. Bottom Recruiter Profile & Logout Card */}
       <div className="p-4 border-t border-gray-100 space-y-3">
-        <div className="bg-orange-50/50 border border-orange-100/70 rounded-2xl p-3.5 space-y-2">
+        <div className="bg-orange-50/50 border border-orange-100/70 rounded-2xl p-3.5 space-y-2.5">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-[#F05323]">
               <UserCheck className="w-4 h-4" />
             </div>
-            <div>
+            <div className="overflow-hidden">
               <span className="text-[10px] uppercase font-bold text-[#F05323] tracking-wider block">
-                {user?.role || "RECRUITER"}
+                {user?.role || "HR RECRUITER"}
               </span>
-              <p className="text-xs text-gray-600 line-clamp-1 leading-tight font-medium">
-                Access to manage assessments and candidates.
+              <p className="text-xs text-gray-700 font-semibold truncate leading-tight">
+                {user?.name || "Rahul Sharma"}
+              </p>
+              <p className="text-[11px] text-gray-500 truncate leading-tight">
+                {user?.email || "recruiter@example.com"}
               </p>
             </div>
           </div>
@@ -102,7 +96,7 @@ export const Sidebar = () => {
             onClick={handleLogout}
             className="w-full h-8 text-xs font-semibold text-gray-700 bg-white hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"
           >
-            <LogOut className="w-3.5 h-3.5 mr-1.5" /> Logout
+            <LogOut className="w-3.5 h-3.5 mr-1.5" /> Sign Out
           </Button>
         </div>
       </div>

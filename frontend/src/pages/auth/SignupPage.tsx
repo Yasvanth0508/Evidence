@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { mockAuthService } from "@/mocks/services/mockAuthService";
 import { useAuthStore } from "@/store/authStore";
+import { useHRStore } from "@/store/hrStore";
 import {
-  User,
+  User as UserIcon,
   Mail,
   Lock,
   Eye,
@@ -15,48 +16,46 @@ import {
   ShieldCheck,
   UserPlus,
   Loader2,
+  ChevronDown,
   Briefcase,
-  Code2,
 } from "lucide-react";
 
 export const SignupPage = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const loginToStore = useAuthStore((state) => state.login);
-
-  const roleParam = searchParams.get("role");
-  const [role, setRole] = useState<"RECRUITER" | "CANDIDATE">(
-    roleParam === "candidate" ? "CANDIDATE" : "RECRUITER"
-  );
+  const { candidates, createAndAddCandidate, setActiveCandidateId } = useHRStore();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("StrongPassword123");
-  const [confirmPassword, setConfirmPassword] = useState("StrongPassword123");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState<"RECRUITER" | "CANDIDATE" | "">("");
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  useEffect(() => {
-    if (roleParam === "candidate") {
-      setRole("CANDIDATE");
-    } else if (roleParam === "recruiter") {
-      setRole("RECRUITER");
-    }
-  }, [roleParam]);
-
-  const handleRoleSelect = (selected: "RECRUITER" | "CANDIDATE") => {
-    setRole(selected);
-    setSearchParams({ role: selected.toLowerCase() });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
 
-    if (password !== confirmPassword) {
-      setErrorMessage("Passwords do not match. Please verify your password.");
+    // 1. Validate Full Name
+    if (!fullName.trim()) {
+      setErrorMessage("Please enter your full name.");
+      return;
+    }
+
+    // 2. Validate Email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim() || !emailRegex.test(email.trim())) {
+      setErrorMessage("Please enter a valid email address.");
+      return;
+    }
+
+    // 3. Validate Password
+    if (!password) {
+      setErrorMessage("Please enter a password.");
       return;
     }
 
@@ -65,13 +64,60 @@ export const SignupPage = () => {
       return;
     }
 
+    // 4. Validate Confirm Password
+    if (password !== confirmPassword) {
+      setErrorMessage("Passwords do not match. Please verify your password.");
+      return;
+    }
+
+    // 5. Validate Role Selection
+    if (!role || (role !== "RECRUITER" && role !== "CANDIDATE")) {
+      setErrorMessage("Please select a role.");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const response = await mockAuthService.signup(fullName, email, role);
+      const response = await mockAuthService.signup(
+        fullName.trim(),
+        email.trim().toLowerCase(),
+        role
+      );
+
       if (response.success && response.data) {
-        loginToStore(response.data.user, response.data.token);
-        navigate("/dashboard");
+        const userObj = {
+          ...response.data.user,
+          name: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          role: role,
+        };
+
+        loginToStore(userObj, response.data.token);
+
+        // If candidate, ensure profile exists in store and activate
+        if (role === "CANDIDATE") {
+          const existingCand = candidates.find(
+            (c) => c.email.toLowerCase() === email.trim().toLowerCase()
+          );
+
+          if (!existingCand) {
+            const created = createAndAddCandidate("ws-iit-bombay", {
+              name: fullName.trim(),
+              email: email.trim().toLowerCase(),
+              role: "Java Backend Developer",
+            });
+            setActiveCandidateId(created.id);
+          } else {
+            setActiveCandidateId(existingCand.id);
+          }
+
+          // Redirect to Candidate Dashboard
+          navigate("/candidate");
+        } else {
+          // Redirect to Recruiter Dashboard
+          navigate("/dashboard");
+        }
       }
     } catch {
       setErrorMessage("Failed to create account. Please try again.");
@@ -82,7 +128,7 @@ export const SignupPage = () => {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-between font-sans">
-      {/* 1. Header */}
+      {/* 1. Header Navigation */}
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <Logo size="md" />
@@ -103,8 +149,8 @@ export const SignupPage = () => {
           </nav>
 
           <div className="flex items-center space-x-3">
-            <Link to={`/login?role=${role.toLowerCase()}`}>
-              <Button variant="outline" size="sm" className="font-semibold text-gray-700">
+            <Link to="/login">
+              <Button variant="outline" size="sm" className="font-semibold text-gray-700 hover:text-gray-900 border-gray-200">
                 Sign In
               </Button>
             </Link>
@@ -112,7 +158,7 @@ export const SignupPage = () => {
         </div>
       </header>
 
-      {/* 2. Main Signup Card */}
+      {/* 2. Main Signup Form Card */}
       <main className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-lg w-full space-y-6">
           <div className="bg-white border border-gray-200/90 rounded-3xl p-8 sm:p-10 shadow-sm">
@@ -123,52 +169,24 @@ export const SignupPage = () => {
               </div>
             </div>
 
-            {/* Title */}
-            <div className="text-center space-y-1 mb-6">
+            {/* Title & Subtitle */}
+            <div className="text-center space-y-1 mb-8">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
-                Create {role === "RECRUITER" ? "Recruiter" : "Candidate"} Account
+                Create Your Account
               </h1>
               <p className="text-xs sm:text-sm text-gray-500">
-                {role === "RECRUITER"
-                  ? "Create workspaces and configure project-specific technical assessments"
-                  : "Sign up to participate in assigned Java Spring Boot assessments"}
+                Create your account to access the platform.
               </p>
             </div>
 
-            {/* Role Switcher Tabs */}
-            <div className="flex p-1 bg-gray-100/80 rounded-2xl mb-6">
-              <button
-                type="button"
-                onClick={() => handleRoleSelect("RECRUITER")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-xl transition-all ${
-                  role === "RECRUITER"
-                    ? "bg-white text-[#F05323] shadow-xs"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <Briefcase className="w-3.5 h-3.5" />
-                I am a Recruiter
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRoleSelect("CANDIDATE")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-xl transition-all ${
-                  role === "CANDIDATE"
-                    ? "bg-white text-emerald-600 shadow-xs"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <Code2 className="w-3.5 h-3.5" />
-                I am a Candidate
-              </button>
-            </div>
-
+            {/* Error Message Alert */}
             {errorMessage && (
               <div className="mb-6 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
                 {errorMessage}
               </div>
             )}
 
+            {/* Unified Single Registration Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Full Name */}
               <div className="space-y-1.5">
@@ -178,10 +196,10 @@ export const SignupPage = () => {
                 <Input
                   type="text"
                   required
-                  placeholder={role === "RECRUITER" ? "e.g. John Recruiter" : "e.g. Rahul Kumar"}
+                  placeholder="Enter your full name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  icon={<User className="w-4 h-4 text-gray-400" />}
+                  icon={<UserIcon className="w-4 h-4 text-gray-400" />}
                 />
               </div>
 
@@ -193,16 +211,11 @@ export const SignupPage = () => {
                 <Input
                   type="email"
                   required
-                  placeholder={role === "RECRUITER" ? "john@company.com" : "rahul@example.com"}
+                  placeholder="Enter your email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   icon={<Mail className="w-4 h-4 text-gray-400" />}
                 />
-                <p className="text-[11px] text-gray-400">
-                  {role === "CANDIDATE"
-                    ? "Your email is the unique identifier recruiters will use to assign assessments."
-                    : "Used for accessing your recruiter workspaces and candidate reports."}
-                </p>
               </div>
 
               {/* Password */}
@@ -261,12 +274,40 @@ export const SignupPage = () => {
                 />
               </div>
 
-              {/* Submit Button */}
+              {/* Role Dropdown */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-700 block">
+                  Role
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                    <Briefcase className="w-4 h-4" />
+                  </div>
+                  <select
+                    value={role}
+                    onChange={(e) =>
+                      setRole(e.target.value as "RECRUITER" | "CANDIDATE" | "")
+                    }
+                    className="flex h-11 w-full rounded-2xl border border-gray-300 bg-white pl-10 pr-10 text-xs text-gray-900 shadow-2xs transition-colors focus:border-[#F05323] focus:outline-none focus:ring-2 focus:ring-[#F05323]/20 appearance-none cursor-pointer"
+                  >
+                    <option value="" disabled className="text-gray-400">
+                      Select your role
+                    </option>
+                    <option value="RECRUITER">Recruiter</option>
+                    <option value="CANDIDATE">Candidate</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-gray-400">
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Button (Create Account ->) */}
               <Button
                 type="submit"
                 disabled={isLoading}
                 size="lg"
-                className="w-full font-semibold gap-2 shadow-xs mt-4 bg-[#F05323] hover:bg-[#d94417]"
+                className="w-full font-bold gap-2 shadow-xs mt-4 bg-[#F05323] hover:bg-[#d94417] text-white cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -274,7 +315,7 @@ export const SignupPage = () => {
                   </>
                 ) : (
                   <>
-                    Sign Up as {role === "RECRUITER" ? "Recruiter" : "Candidate"} <ArrowRight className="w-4 h-4" />
+                    Create Account <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </Button>
@@ -293,7 +334,7 @@ export const SignupPage = () => {
             <div className="text-center text-xs text-gray-500">
               Already have an account?{" "}
               <Link
-                to={`/login?role=${role.toLowerCase()}`}
+                to={role ? `/login?role=${role.toLowerCase()}` : "/login"}
                 className="font-bold text-[#F05323] hover:underline"
               >
                 Sign In

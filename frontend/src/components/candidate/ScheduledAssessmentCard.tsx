@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { HRAssessment } from "@/store/hrStore";
 import { useAssessmentCountdown } from "@/hooks/useAssessmentCountdown";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import {
   CheckCircle2,
   Sparkles,
 } from "lucide-react";
+import { PreAssessmentModal } from "@/components/candidate/PreAssessmentModal";
 
 interface ScheduledAssessmentCardProps {
   assessment: HRAssessment & { workspaceName?: string };
@@ -22,8 +22,8 @@ interface ScheduledAssessmentCardProps {
 export const ScheduledAssessmentCard = ({
   assessment,
 }: ScheduledAssessmentCardProps) => {
-  const navigate = useNavigate();
   const [isHoveringDisabled, setIsHoveringDisabled] = useState(false);
+  const [isPreAssessmentModalOpen, setIsPreAssessmentModalOpen] = useState(false);
 
   const {
     days,
@@ -41,7 +41,7 @@ export const ScheduledAssessmentCard = ({
 
   const handleTakeAssessment = () => {
     if (!isUnlocked) return;
-    navigate(`/assessment/${assessment.id}`);
+    setIsPreAssessmentModalOpen(true);
   };
 
   return (
@@ -211,6 +211,22 @@ export const ScheduledAssessmentCard = ({
             : "The test environment will automatically unlock when the countdown reaches 00:00:00."}
         </p>
       </div>
+
+      {/* Pre-Assessment Instructions & Start Confirmation Modal */}
+      <PreAssessmentModal
+        isOpen={isPreAssessmentModalOpen}
+        onClose={() => setIsPreAssessmentModalOpen(false)}
+        assessment={{
+          id: assessment.id,
+          title: assessment.title,
+          workspaceName: assessment.workspaceName || "Placement Drive",
+          difficulty: assessment.difficulty,
+          durationMinutes: assessment.durationMinutes,
+          scheduledStartAt: assessment.scheduledStartAt || "",
+          scheduledEndAt: assessment.scheduledEndAt || "",
+          techStack: assessment.category,
+        }}
+      />
     </div>
   );
 };

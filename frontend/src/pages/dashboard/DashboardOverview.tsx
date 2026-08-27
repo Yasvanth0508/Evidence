@@ -1,5 +1,8 @@
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useHRStore } from "@/store/hrStore";
+import { workspaceService } from "@/services/workspaceService";
+import { dashboardService, RecruiterDashboardData } from "@/services/dashboardService";
 import { Button } from "@/components/ui/button";
 import {
   Folder,
@@ -22,10 +25,62 @@ export const DashboardOverview = () => {
     workspaces,
     candidates,
     assessments,
+    createWorkspace,
     getDashboardMetrics,
   } = useHRStore();
 
-  const metrics = getDashboardMetrics();
+  const [backendMetrics, setBackendMetrics] = useState<RecruiterDashboardData | null>(null);
+
+  // Sync backend workspaces & metrics on load
+  useEffect(() => {
+    let isMounted = true;
+    workspaceService
+      .getWorkspaces()
+      .then((backendWsList) => {
+        if (isMounted && Array.isArray(backendWsList)) {
+          backendWsList.forEach((bWs) => {
+            const exists = workspaces.some((w) => w.id === bWs.id || w.name === bWs.name);
+            if (!exists) {
+              createWorkspace({
+                id: bWs.id,
+                name: bWs.name,
+                description: bWs.description || "",
+                track: "Java Spring Boot Backend",
+                defaultDurationMinutes: 90,
+              });
+            }
+          });
+        }
+      })
+      .catch((err) => {
+        console.debug("Backend workspace sync skipped in dashboard:", err.message);
+      });
+
+    dashboardService
+      .getRecruiterDashboard()
+      .then((data) => {
+        if (isMounted && data) {
+          setBackendMetrics(data);
+        }
+      })
+      .catch((err) => {
+        console.debug("Backend dashboard metrics fetch skipped:", err.message);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const localMetrics = getDashboardMetrics();
+  const metrics = {
+    totalWorkspaces: backendMetrics?.totalWorkspaces ?? localMetrics.totalWorkspaces,
+    totalCandidates: backendMetrics?.totalCandidates ?? localMetrics.totalCandidates,
+    candidatesAssigned: backendMetrics?.totalAssessments ?? localMetrics.candidatesAssigned,
+    completedAssessments: backendMetrics?.completedAssessments ?? localMetrics.completedAssessments,
+    selectedCandidates: localMetrics.selectedCandidates,
+    avgScore: localMetrics.avgScore,
+  };
 
   const recentAssessments = assessments.map((asmt) => {
     const cand = candidates.find((c) => c.id === asmt.candidateId);

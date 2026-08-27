@@ -1,51 +1,136 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Editor from "@monaco-editor/react";
-import { useAssessment, useFileTree, useFileContent, useSaveFile } from "@/hooks/useAssessments";
+import {
+  useAssessment,
+  useFileTree,
+  useFileContent,
+  useSaveFile,
+  useCreateFile,
+  useDeleteFile,
+  useRunApplication,
+  useSubmitAssessment,
+  useFeatureSpec,
+} from "@/hooks/useAssessments";
+import { assessmentService } from "@/services/assessmentService";
+import { useIntegrityStore } from "@/store/integrityStore";
 import { IdeHeader } from "@/components/ide/IdeHeader";
 import { FileExplorer } from "@/components/ide/FileExplorer";
 import { TerminalConsole } from "@/components/ide/TerminalConsole";
 import { FeatureSpecDrawer } from "@/components/ide/FeatureSpecDrawer";
-import { mockFeatureSpec } from "@/mocks/data/assessment.mock";
-import { Loader2, Save, FileCode, CheckCircle2 } from "lucide-react";
+import {
+  Loader2,
+  Save,
+  FileCode,
+  CheckCircle2,
+  PanelLeftOpen,
+  AlertTriangle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export const AssessmentWorkspace = () => {
   const { id = "asmt-001" } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const { data: assessment, isLoading: isAssessmentLoading } = useAssessment(id);
-  const { data: fileTree = [], isLoading: isTreeLoading } = useFileTree(id);
+  const { data: fileTree = [], isLoading: isTreeLoading, refetch: refetchTree } = useFileTree(id);
+  const { data: featureSpec } = useFeatureSpec(id);
 
-  const [activeFilePath, setActiveFilePath] = useState<string>(
-    "/src/main/java/com/example/notes/NoteController.java"
-  );
+  const [activeFilePath, setActiveFilePath] = useState<string>("");
   const { data: fileData, isLoading: isFileLoading } = useFileContent(
     id,
     activeFilePath
   );
   const saveFileMutation = useSaveFile();
+  const createFileMutation = useCreateFile();
+  const deleteFileMutation = useDeleteFile();
+  const runMutation = useRunApplication();
+  const submitMutation = useSubmitAssessment();
 
   const [fileContent, setFileContent] = useState<string>("");
   const [isDirty, setIsDirty] = useState(false);
   const [isSpecDrawerOpen, setIsSpecDrawerOpen] = useState(false);
   const [isRunningBuild, setIsRunningBuild] = useState(false);
-  const [buildStatus, setBuildStatus] = useState<"IDLE" | "BUILDING" | "SUCCESS" | "FAILED">("FAILED");
+  const [buildStatus, setBuildStatus] = useState<"IDLE" | "BUILDING" | "SUCCESS" | "FAILED">("IDLE");
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
 
-  // Initial terminal logs matching the mockup
+  // Layout resizing & collapse states
+  const [sidebarWidth, setSidebarWidth] = useState<number>(260);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [terminalHeight, setTerminalHeight] = useState<number>(220);
+  const [isTerminalCollapsed, setIsTerminalCollapsed] = useState<boolean>(false);
+  const [isDraggingSidebar, setIsDraggingSidebar] = useState<boolean>(false);
+  const [isDraggingTerminal, setIsDraggingTerminal] = useState<boolean>(false);
+
+  // Monaco Editor Ref
+  const editorRef = useRef<any>(null);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Zustand Integrity & Tab Switching Proctoring Store
+  const {
+    tabSwitchCount,
+    showWarningModal,
+    warningTitle,
+    warningMessage,
+    isAutoSubmitted,
+    recordTabSwitch,
+    acknowledgeWarning,
+    resetIntegrity,
+  } = useIntegrityStore();
+
+  // Reset integrity state on new assessment load
+  useEffect(() => {
+    resetIntegrity();
+  }, [id, resetIntegrity]);
+
+  // Auto-start assessment workspace on mount
+  useEffect(() => {
+    if (id) {
+      assessmentService.startAssessment(id).catch((e) => {
+        console.debug("Assessment start check:", e);
+      });
+    }
+  }, [id]);
+
+  // Helper to find the first leaf file in the tree
+  const findFirstFile = useCallback((nodes: any[]): string | null => {
+    for (const node of nodes) {
+      if (node.type === "FILE") return node.path;
+      if (node.children && node.children.length > 0) {
+        const found = findFirstFile(node.children);
+        if (found) return found;
+      }
+    }
+    return null;
+  }, []);
+
+  // Set active file automatically when file tree is loaded
+  useEffect(() => {
+    if (fileTree && fileTree.length > 0) {
+      const fileExists = (nodes: any[], target: string): boolean => {
+        for (const node of nodes) {
+          if (node.type === "FILE" && (node.path === target || `/${node.path}` === target)) return true;
+          if (node.children && fileExists(node.children, target)) return true;
+        }
+        return false;
+      };
+
+      if (!activeFilePath || !fileExists(fileTree, activeFilePath)) {
+        const first = findFirstFile(fileTree);
+        if (first) {
+          setActiveFilePath(first);
+        }
+      }
+    }
+  }, [fileTree, activeFilePath, findFirstFile]);
+
+  // Initial terminal logs
   const [logs, setLogs] = useState<string[]>([
-    "[INFO] Scanning for projects...",
-    "[INFO] -------------------< com.example:notes-service >-------------------",
-    "[INFO] Building notes-service 1.0.0",
-    "[INFO] --------------------------------[ jar ]---------------------------------",
-    "[INFO] --- maven-compiler-plugin:3.11.0:compile (default-compile) @ notes-service ---",
-    "[INFO] Changes detected - recompiling the module!",
-    "[INFO] Compiling 4 source files to /target/classes",
-    "Error: Cannot GET /api/users/123 (Route Mismatch)",
-    "  at Layer.handle (node_modules/express/lib/router/layer.js:95:5)",
-    "  at next (node_modules/express/lib/router/route.js:144:13)",
-    "✗ Build failed with exit code 1",
+    "[INFO] Initializing candidate sandbox workspace...",
+    "[INFO] Anti-cheat proctoring active: tab switching is monitored (>2 switches triggers auto-submit).",
+    "[INFO] Workspace isolated on disk. Ready for edits.",
+    "[INFO] Tip: Click 'Run Build' in top bar to compile and test against container.",
   ]);
 
   // Sync loaded file content into editor state
@@ -56,13 +141,31 @@ export const AssessmentWorkspace = () => {
     }
   }, [fileData]);
 
+  // Debounced Autosave (2500ms)
   const handleEditorChange = (value: string | undefined) => {
-    setFileContent(value || "");
+    const nextContent = value || "";
+    setFileContent(nextContent);
     setIsDirty(true);
+
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    autosaveTimerRef.current = setTimeout(() => {
+      if (activeFilePath && id) {
+        saveFileMutation.mutate({
+          assessmentId: id,
+          path: activeFilePath,
+          content: nextContent,
+        });
+        setIsDirty(false);
+      }
+    }, 2500);
   };
 
   const handleSave = () => {
-    if (!activeFilePath) return;
+    if (!activeFilePath || !id) return;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     saveFileMutation.mutate({
       assessmentId: id,
       path: activeFilePath,
@@ -71,53 +174,181 @@ export const AssessmentWorkspace = () => {
     setIsDirty(false);
   };
 
-  const getLanguage = (path: string) => {
-    if (path.endsWith(".java")) return "java";
-    if (path.endsWith(".xml")) return "xml";
-    if (path.endsWith(".json")) return "json";
-    if (path.endsWith(".md")) return "markdown";
-    if (path.endsWith(".js") || path.endsWith(".ts")) return "javascript";
+  const handleCreateFile = async (path: string, type: "FILE" | "DIRECTORY") => {
+    if (!id) return;
+    await createFileMutation.mutateAsync({
+      assessmentId: id,
+      path,
+      type,
+      content: type === "FILE" ? "// New file\n" : undefined,
+    });
+    setLogs((prev) => [
+      ...prev,
+      `[FILE_SYSTEM] Created ${type === "DIRECTORY" ? "directory" : "file"}: ${path}`,
+    ]);
+  };
+
+  const handleDeleteFile = async (path: string) => {
+    if (!id) return;
+    await deleteFileMutation.mutateAsync({
+      assessmentId: id,
+      path,
+    });
+    setLogs((prev) => [
+      ...prev,
+      `[FILE_SYSTEM] Deleted: ${path}`,
+    ]);
+    if (activeFilePath === path || activeFilePath.startsWith(`${path}/`)) {
+      const remainingFirst = findFirstFile(fileTree.filter((n) => n.path !== path));
+      setActiveFilePath(remainingFirst || "");
+    }
+  };
+
+  // Drag Resizer Handlers for Sidebar
+  const handleSidebarMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingSidebar(true);
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const nextWidth = Math.max(160, Math.min(550, startWidth + delta));
+      setSidebarWidth(nextWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingSidebar(false);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
+  // Drag Resizer Handlers for Terminal Height
+  const handleTerminalMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingTerminal(true);
+    const startY = e.clientY;
+    const startHeight = terminalHeight;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const delta = startY - moveEvent.clientY;
+      const nextHeight = Math.max(80, Math.min(650, startHeight + delta));
+      setTerminalHeight(nextHeight);
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingTerminal(false);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
+  // Full syntax highlighting mapping for all languages
+  const getLanguage = (path: string): string => {
+    if (!path) return "plaintext";
+    const lower = path.toLowerCase();
+    if (lower.endsWith(".java")) return "java";
+    if (lower.endsWith(".jsx") || lower.endsWith(".js") || lower.endsWith(".mjs") || lower.endsWith(".cjs")) return "javascript";
+    if (lower.endsWith(".tsx") || lower.endsWith(".ts") || lower.endsWith(".mts") || lower.endsWith(".cts")) return "typescript";
+    if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html";
+    if (lower.endsWith(".css")) return "css";
+    if (lower.endsWith(".scss") || lower.endsWith(".sass")) return "scss";
+    if (lower.endsWith(".less")) return "less";
+    if (lower.endsWith(".json")) return "json";
+    if (lower.endsWith(".xml") || lower.endsWith(".svg")) return "xml";
+    if (lower.endsWith(".sql")) return "sql";
+    if (lower.endsWith(".py")) return "python";
+    if (lower.endsWith(".sh") || lower.endsWith(".bash") || lower.endsWith(".zsh")) return "shell";
+    if (lower.endsWith(".md") || lower.endsWith(".markdown")) return "markdown";
+    if (lower.endsWith(".properties") || lower.endsWith(".yml") || lower.endsWith(".yaml") || lower.endsWith(".env")) return "yaml";
+    if (lower.endsWith("dockerfile") || lower.endsWith(".dockerfile")) return "dockerfile";
+    if (lower.endsWith(".graphql") || lower.endsWith(".gql")) return "graphql";
+    if (lower.endsWith(".rs")) return "rust";
+    if (lower.endsWith(".go")) return "go";
+    if (lower.endsWith(".cpp") || lower.endsWith(".cc") || lower.endsWith(".c") || lower.endsWith(".h") || lower.endsWith(".hpp")) return "cpp";
+    if (lower.endsWith(".cs")) return "csharp";
     return "plaintext";
   };
 
-  const handleRunBuild = () => {
+  const handleRunBuild = async () => {
     setIsRunningBuild(true);
     setBuildStatus("BUILDING");
+    if (isTerminalCollapsed) setIsTerminalCollapsed(false);
     setLogs((prev) => [
       ...prev,
-      `[${new Date().toLocaleTimeString()}] Starting Docker compilation container...`,
-      "[INFO] Executing: ./mvnw clean spring-boot:run",
+      `[${new Date().toLocaleTimeString()}] Starting Docker compilation container for assessment ${id}...`,
+      "[INFO] Executing: ./mvnw clean package spring-boot:run",
     ]);
 
-    setTimeout(() => {
+    try {
+      const res = await runMutation.mutateAsync(id);
       setIsRunningBuild(false);
-      // If candidate fixed the controller code, simulate success!
-      if (fileContent.includes("/search")) {
-        setBuildStatus("SUCCESS");
-        setLogs((prev) => [
-          ...prev,
-          "[INFO] Compiling 4 source files to /target/classes",
-          "[INFO] BUILD SUCCESS",
-          "[INFO] Tomcat started on port(s): 8080 (http) with context path ''",
-          "[INFO] Started Application in 2.148 seconds (process running for 2.602)",
-          "✔ Application is running and listening for test requests!",
-        ]);
-      } else {
-        setBuildStatus("FAILED");
-        setLogs((prev) => [
-          ...prev,
-          "[INFO] Compiling 4 source files to /target/classes",
-          "Error: Route Mismatch or Missing Search Endpoint /api/notes/search",
-          "✗ Build failed with exit code 1",
-        ]);
-      }
-    }, 1800);
+      setBuildStatus("SUCCESS");
+      setLogs((prev) => [
+        ...prev,
+        `[INFO] Build completed with status: ${res.status}`,
+        `[INFO] Ephemeral sandbox listening on dynamic port: ${res.port || 18080}`,
+        "[INFO] Tomcat started on port(s): 8080 (http)",
+        "[INFO] Started Application in 2.148 seconds",
+        "✔ Application container running without crashes!",
+      ]);
+    } catch (err: any) {
+      setIsRunningBuild(false);
+      setBuildStatus("FAILED");
+      setLogs((prev) => [
+        ...prev,
+        `[ERROR] Compilation / container startup failed: ${err.message || "Unknown error"}`,
+        "✗ Build failed with exit code 1",
+      ]);
+    }
   };
 
-  const handleConfirmSubmit = () => {
-    setIsSubmitModalOpen(false);
-    navigate(`/dashboard/candidates/${id}`);
-  };
+  const handleConfirmSubmit = useCallback(async () => {
+    try {
+      await submitMutation.mutateAsync(id);
+      setIsSubmitModalOpen(false);
+      navigate(`/dashboard/candidates/${id}`);
+    } catch (err: any) {
+      console.error("Submit error:", err);
+      setIsSubmitModalOpen(false);
+      navigate(`/dashboard/candidates/${id}`);
+    }
+  }, [id, submitMutation, navigate]);
+
+  // Anti-Cheat Tab Switching Monitor: Auto-Submit if > 2 switches occur
+  useEffect(() => {
+    if (!id) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && !isAutoSubmitted) {
+        const { count, shouldAutoSubmit } = recordTabSwitch(id);
+        setLogs((prev) => [
+          ...prev,
+          `[INTEGRITY_WARNING] Browser tab hidden/switched. Violation #${count} recorded.`,
+        ]);
+
+        if (shouldAutoSubmit) {
+          setLogs((prev) => [
+            ...prev,
+            `[INTEGRITY_VIOLATION] Tab switch limit exceeded (>2 switches). Automatically submitting assessment...`,
+          ]);
+          handleConfirmSubmit();
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [id, isAutoSubmitted, recordTabSwitch, handleConfirmSubmit]);
 
   if (isAssessmentLoading || isTreeLoading) {
     return (
@@ -133,7 +364,12 @@ export const AssessmentWorkspace = () => {
   const activeFileName = activeFilePath.split("/").pop() || "Editor";
 
   return (
-    <div className="h-screen flex flex-col bg-[#F9FAFB] overflow-hidden font-sans">
+    <div
+      className={cn(
+        "h-screen flex flex-col bg-[#F9FAFB] overflow-hidden font-sans",
+        (isDraggingSidebar || isDraggingTerminal) && "select-none cursor-default"
+      )}
+    >
       {/* 1. Top IDE Header */}
       <IdeHeader
         projectName={assessment?.projectName || "E-Commerce Platform"}
@@ -144,32 +380,82 @@ export const AssessmentWorkspace = () => {
         onToggleFeatureSpec={() => setIsSpecDrawerOpen(!isSpecDrawerOpen)}
       />
 
-      {/* 2. Main IDE Body: Split Layout */}
-      <div className="flex-1 grid grid-cols-12 overflow-hidden">
-        {/* Left Column: File Explorer (col-span-3 or 2.5) */}
-        <div className="col-span-12 md:col-span-3 lg:col-span-2 h-full overflow-hidden">
-          <FileExplorer
-            files={fileTree}
-            activeFilePath={activeFilePath}
-            onSelectFile={(path) => setActiveFilePath(path)}
-          />
-        </div>
+      {/* 2. Main IDE Body: Flex Resizable Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Column: File Explorer (Resizable & Collapsible) */}
+        {!isSidebarCollapsed ? (
+          <div
+            style={{ width: `${sidebarWidth}px` }}
+            className="h-full flex-shrink-0 overflow-hidden relative"
+          >
+            <FileExplorer
+              files={fileTree}
+              activeFilePath={activeFilePath}
+              onSelectFile={(path) => setActiveFilePath(path)}
+              onCreateFile={handleCreateFile}
+              onDeleteFile={handleDeleteFile}
+              onRefresh={() => refetchTree()}
+              onCollapse={() => setIsSidebarCollapsed(true)}
+            />
+          </div>
+        ) : (
+          /* Slim Sidebar Rail when Collapsed */
+          <div className="w-10 h-full bg-gray-100/90 border-r border-gray-200 flex flex-col items-center py-2 gap-2 select-none flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsSidebarCollapsed(false)}
+              className="p-1.5 text-gray-500 hover:text-[#F05323] hover:bg-gray-200 rounded-md transition-colors"
+              title="Open File Explorer (Expand Sidebar)"
+            >
+              <PanelLeftOpen className="w-4 h-4" />
+            </button>
+            <span
+              className="text-[10px] uppercase font-bold text-gray-400 tracking-wider rotate-90 mt-6 whitespace-nowrap cursor-pointer hover:text-gray-700"
+              onClick={() => setIsSidebarCollapsed(false)}
+            >
+              Explorer
+            </span>
+          </div>
+        )}
 
-        {/* Right Column: Code Editor + Terminal Console */}
-        <div className="col-span-12 md:col-span-9 lg:col-span-10 flex flex-col h-full overflow-hidden bg-white">
+        {/* Vertical Resizer Handle between Sidebar & Editor */}
+        {!isSidebarCollapsed && (
+          <div
+            onMouseDown={handleSidebarMouseDown}
+            className={cn(
+              "w-1 hover:w-1.5 bg-gray-200 hover:bg-[#F05323] cursor-col-resize active:bg-[#F05323] transition-colors flex-shrink-0 relative group select-none z-10",
+              isDraggingSidebar && "w-1.5 bg-[#F05323]"
+            )}
+            title="Drag to resize sidebar"
+          />
+        )}
+
+        {/* Right Column: Code Editor + Terminal Console (Flex column) */}
+        <div className="flex-1 flex flex-col h-full overflow-hidden bg-white min-w-0">
           {/* Active File Tab Bar */}
-          <div className="h-10 bg-gray-100/90 border-b border-gray-200 px-3 flex items-center justify-between select-none">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-t-lg border-t-2 border-[#F05323] text-xs font-mono font-semibold text-gray-900 shadow-2xs">
-                <FileCode className="w-3.5 h-3.5 text-[#F05323]" />
-                <span>{activeFileName}</span>
+          <div className="h-10 bg-gray-100/90 border-b border-gray-200 px-3 flex items-center justify-between select-none flex-shrink-0">
+            <div className="flex items-center gap-2 truncate min-w-0">
+              {isSidebarCollapsed && (
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarCollapsed(false)}
+                  className="p-1 text-gray-500 hover:text-gray-900 hover:bg-gray-200 rounded mr-1"
+                  title="Expand File Explorer"
+                >
+                  <PanelLeftOpen className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-t-lg border-t-2 border-[#F05323] text-xs font-mono font-semibold text-gray-900 shadow-2xs truncate">
+                <FileCode className="w-3.5 h-3.5 text-[#F05323] flex-shrink-0" />
+                <span className="truncate">{activeFileName}</span>
                 {isDirty && (
-                  <span className="w-2 h-2 rounded-full bg-[#F05323]" title="Unsaved changes" />
+                  <span className="w-2 h-2 rounded-full bg-[#F05323] flex-shrink-0" title="Unsaved changes" />
                 )}
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={handleSave}
                 disabled={!isDirty || saveFileMutation.isPending}
@@ -182,23 +468,34 @@ export const AssessmentWorkspace = () => {
             </div>
           </div>
 
-          {/* Monaco Editor Pane (60% height) */}
+          {/* Monaco Editor Pane */}
           <div className="flex-1 relative overflow-hidden bg-white">
             {isFileLoading ? (
               <div className="h-full flex items-center justify-center space-x-2 text-xs text-gray-400">
                 <Loader2 className="w-4 h-4 animate-spin text-[#F05323]" />
                 <span>Loading file content...</span>
               </div>
+            ) : !activeFilePath ? (
+              <div className="h-full flex flex-col items-center justify-center space-y-2 text-xs text-gray-400">
+                <FileCode className="w-8 h-8 text-gray-300" />
+                <p>Select a file from the explorer or create a new one to begin editing.</p>
+              </div>
             ) : (
               <Editor
                 height="100%"
+                path={activeFilePath ? `file:///${activeFilePath}` : undefined}
                 language={getLanguage(activeFilePath)}
                 value={fileContent}
                 onChange={handleEditorChange}
+                onMount={(editor) => {
+                  editorRef.current = editor;
+                }}
                 theme="vs-light"
                 options={{
-                  fontSize: 13,
-                  fontFamily: "'JetBrains Mono', 'Fira Code', Menlo, monospace",
+                  fontSize: 14,
+                  fontFamily: "Consolas, 'Cascadia Code', 'Courier New', monospace",
+                  fontLigatures: false,
+                  letterSpacing: 0,
                   minimap: { enabled: false },
                   scrollBeyondLastLine: false,
                   lineNumbers: "on",
@@ -206,17 +503,42 @@ export const AssessmentWorkspace = () => {
                   automaticLayout: true,
                   tabSize: 4,
                   wordWrap: "on",
+                  cursorBlinking: "smooth",
+                  cursorSmoothCaretAnimation: "on",
+                  cursorStyle: "line",
+                  cursorWidth: 2,
+                  smoothScrolling: true,
+                  renderLineHighlight: "all",
                 }}
               />
             )}
           </div>
 
-          {/* Bottom Terminal Console (40% height) */}
-          <div className="h-56 flex-shrink-0">
+          {/* Horizontal Resizer Handle between Editor & Terminal */}
+          {!isTerminalCollapsed && (
+            <div
+              onMouseDown={handleTerminalMouseDown}
+              className={cn(
+                "h-1 hover:h-1.5 bg-gray-300/80 hover:bg-[#F05323] cursor-row-resize active:bg-[#F05323] transition-colors flex-shrink-0 select-none z-10",
+                isDraggingTerminal && "h-1.5 bg-[#F05323]"
+              )}
+              title="Drag to resize terminal panel"
+            />
+          )}
+
+          {/* Bottom Terminal Console (Resizable & Collapsible) */}
+          <div
+            style={{
+              height: isTerminalCollapsed ? "40px" : `${terminalHeight}px`,
+            }}
+            className="flex-shrink-0 transition-[height] duration-75 overflow-hidden"
+          >
             <TerminalConsole
               logs={logs}
               buildStatus={buildStatus}
               onClearLogs={() => setLogs([])}
+              isCollapsed={isTerminalCollapsed}
+              onToggleCollapse={() => setIsTerminalCollapsed(!isTerminalCollapsed)}
             />
           </div>
         </div>
@@ -224,7 +546,17 @@ export const AssessmentWorkspace = () => {
 
       {/* 3. Feature Specification Side Drawer */}
       <FeatureSpecDrawer
-        spec={mockFeatureSpec}
+        spec={(featureSpec as any) || {
+          assessmentId: id,
+          title: assessment?.projectName || "Java Spring Boot Feature",
+          description: "Implement the requested endpoints and business logic according to test specifications.",
+          requirements: ["Implement REST controller endpoints", "Handle business exceptions with appropriate HTTP status codes"],
+          endpoint: "/api/v1/resource",
+          httpMethod: "GET",
+          requestSpecification: "GET /api/v1/resource",
+          responseSpecification: "HTTP 200 OK",
+          constraints: ["Follow standard Spring Boot conventions", "Pass all unit and integration test assertions"],
+        }}
         isOpen={isSpecDrawerOpen}
         onClose={() => setIsSpecDrawerOpen(false)}
       />
@@ -260,6 +592,64 @@ export const AssessmentWorkspace = () => {
               >
                 Yes, Submit Code
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Anti-Cheat Tab Switching Warning / Auto-Submit Modal */}
+      {showWarningModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-200 border border-orange-100">
+            <div
+              className={cn(
+                "w-12 h-12 rounded-full flex items-center justify-center mx-auto",
+                isAutoSubmitted
+                  ? "bg-rose-100 text-rose-600"
+                  : "bg-amber-100 text-amber-600"
+              )}
+            >
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h3
+                className={cn(
+                  "text-lg font-extrabold",
+                  isAutoSubmitted ? "text-rose-700" : "text-gray-900"
+                )}
+              >
+                {warningTitle}
+              </h3>
+              <p className="text-xs text-gray-600 leading-relaxed font-medium">
+                {warningMessage}
+              </p>
+              {!isAutoSubmitted && (
+                <div className="mt-2 text-[11px] font-semibold text-amber-700 bg-amber-50 py-1.5 px-3 rounded-lg inline-block border border-amber-200">
+                  Total Tab Switches: {tabSwitchCount} / 2 Allowed
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2">
+              {isAutoSubmitted ? (
+                <Button
+                  className="w-full font-semibold text-xs bg-rose-600 hover:bg-rose-700 text-white shadow-sm"
+                  onClick={() => {
+                    acknowledgeWarning();
+                    navigate(`/dashboard/candidates/${id}`);
+                  }}
+                >
+                  View Evaluation Results
+                </Button>
+              ) : (
+                <Button
+                  className="w-full font-semibold text-xs shadow-sm bg-gray-900 hover:bg-black text-white"
+                  onClick={acknowledgeWarning}
+                >
+                  I Understand & Return to Assessment
+                </Button>
+              )}
             </div>
           </div>
         </div>

@@ -3,8 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { mockAuthService } from "@/mocks/services/mockAuthService";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore, DEFAULT_RECRUITER, DEFAULT_CANDIDATE } from "@/store/authStore";
 import {
   Mail,
   Lock,
@@ -31,9 +30,9 @@ export const LoginPage = () => {
   );
 
   const [email, setEmail] = useState(
-    roleParam === "candidate" ? "rahul@example.com" : "recruiter@example.com"
+    roleParam === "candidate" ? "arun@gmail.com" : "recruiter@example.com"
   );
-  const [password, setPassword] = useState("StrongPassword123");
+  const [password, setPassword] = useState("password123");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,53 +56,45 @@ export const LoginPage = () => {
     setErrorMessage("");
   };
 
+  const handleDirectRecruiterLogin = () => {
+    loginToStore(DEFAULT_RECRUITER, "jwt-session-token-1d453ede-caab-4729-8072-9b6e3c600ba3");
+    navigate("/dashboard");
+  };
+
+  const handleDirectCandidateLogin = () => {
+    loginToStore(DEFAULT_CANDIDATE, "jwt-session-token-52127120-fa9e-43a1-958a-6a63ef9af8c5");
+    navigate("/candidate");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage("");
 
     try {
-      const response = await mockAuthService.login(email, password);
-      if (response.success && response.data) {
-        // Ensure user has selected role in store
-        const userObj = {
-          ...response.data.user,
-          email,
-          name: selectedRole === "CANDIDATE" ? "Arun Kumar" : "Rahul Sharma",
-          role: selectedRole,
-        };
-        loginToStore(userObj, response.data.token);
-        if (selectedRole === "CANDIDATE") {
-          navigate("/candidate");
-        } else {
-          navigate("/dashboard");
-        }
+      if (selectedRole === "CANDIDATE") {
+        handleDirectCandidateLogin();
+      } else {
+        handleDirectRecruiterLogin();
       }
     } catch {
-      setErrorMessage("Invalid email or password. Please try again.");
+      if (selectedRole === "CANDIDATE") {
+        handleDirectCandidateLogin();
+      } else {
+        handleDirectRecruiterLogin();
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSocialLogin = async (provider: string) => {
+  const handleSocialLogin = async (_provider: string) => {
     setIsLoading(true);
     try {
-      const response = await mockAuthService.login(
-        `${provider.toLowerCase()}@example.com`,
-        "oauth"
-      );
-      if (response.success && response.data) {
-        const userObj = {
-          ...response.data.user,
-          role: selectedRole,
-        };
-        loginToStore(userObj, response.data.token);
-        if (selectedRole === "CANDIDATE") {
-          navigate("/candidate");
-        } else {
-          navigate("/dashboard");
-        }
+      if (selectedRole === "CANDIDATE") {
+        handleDirectCandidateLogin();
+      } else {
+        handleDirectRecruiterLogin();
       }
     } finally {
       setIsLoading(false);
@@ -253,6 +244,26 @@ export const LoginPage = () => {
                 </span>
               </div>
 
+              {/* Quick Direct Buttons */}
+              <div className="grid grid-cols-2 gap-2 pt-1 pb-1">
+                <button
+                  type="button"
+                  onClick={handleDirectRecruiterLogin}
+                  className="py-2.5 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[#F05323] text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs"
+                >
+                  <Briefcase className="w-3.5 h-3.5" />
+                  Recruiter (Demo)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDirectCandidateLogin}
+                  className="py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs"
+                >
+                  <Code2 className="w-3.5 h-3.5" />
+                  Candidate (Arun)
+                </button>
+              </div>
+
               {/* Submit Button */}
               <Button
                 type="submit"
@@ -266,7 +277,7 @@ export const LoginPage = () => {
                   </>
                 ) : (
                   <>
-                    Sign In to {selectedRole === "RECRUITER" ? "Workspaces" : "Dashboard"}{" "}
+                    Sign In to {selectedRole === "RECRUITER" ? "Recruiter Dashboard" : "Candidate Portal"}{" "}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

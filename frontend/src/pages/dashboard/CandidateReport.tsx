@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useCandidateReport } from "@/hooks/useCandidates";
 import { ScoreProgressCircle } from "@/components/candidate/ScoreProgressCircle";
@@ -15,11 +16,14 @@ import {
   Clock,
   ArrowLeft,
   Loader2,
+  Sparkles,
 } from "lucide-react";
+import { AstAnalysisDrawer } from "@/components/dashboard/AstAnalysisDrawer";
 
 export const CandidateReport = () => {
   const { id = "asmt-001" } = useParams<{ id: string }>();
   const { data, isLoading, error } = useCandidateReport(id);
+  const [isAstDrawerOpen, setIsAstDrawerOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -61,6 +65,16 @@ export const CandidateReport = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs font-bold text-[#F05323] border-orange-200 hover:bg-orange-50"
+            onClick={() => setIsAstDrawerOpen(true)}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#F05323]" />
+            <span>Inspect AST & AI Feature Spec</span>
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -211,6 +225,13 @@ export const CandidateReport = () => {
           <span>Download PDF Report</span>
         </Button>
       </div>
+
+      {/* Codebase AST & AI Feature Specification Drawer */}
+      <AstAnalysisDrawer
+        isOpen={isAstDrawerOpen}
+        onClose={() => setIsAstDrawerOpen(false)}
+        assessmentTitle={data.project.name}
+      />
     </div>
   );
 };

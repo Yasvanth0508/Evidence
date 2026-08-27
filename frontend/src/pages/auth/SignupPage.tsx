@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { mockAuthService } from "@/mocks/services/mockAuthService";
+import { authService } from "@/services/authService";
 import { useAuthStore } from "@/store/authStore";
 import { useHRStore } from "@/store/hrStore";
 import {
@@ -23,7 +23,7 @@ import {
 export const SignupPage = () => {
   const navigate = useNavigate();
   const loginToStore = useAuthStore((state) => state.login);
-  const { candidates, createAndAddCandidate, setActiveCandidateId } = useHRStore();
+  const { setActiveCandidateId } = useHRStore();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -79,48 +79,40 @@ export const SignupPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await mockAuthService.signup(
+      const response: any = await authService.signup(
         fullName.trim(),
         email.trim().toLowerCase(),
+        password,
         role
       );
 
-      if (response.success && response.data) {
+      const userPayload = response?.user || response;
+      const token = response?.token || "jwt-session-token";
+
+      if (userPayload) {
         const userObj = {
-          ...response.data.user,
+          ...userPayload,
+          id: userPayload.id,
           name: fullName.trim(),
           email: email.trim().toLowerCase(),
           role: role,
         };
 
-        loginToStore(userObj, response.data.token);
+        loginToStore(userObj, token);
+        setActiveCandidateId(userObj.id);
 
-        // If candidate, ensure profile exists in store and activate
         if (role === "CANDIDATE") {
-          const existingCand = candidates.find(
-            (c) => c.email.toLowerCase() === email.trim().toLowerCase()
-          );
-
-          if (!existingCand) {
-            const created = createAndAddCandidate("ws-iit-bombay", {
-              name: fullName.trim(),
-              email: email.trim().toLowerCase(),
-              role: "Java Backend Developer",
-            });
-            setActiveCandidateId(created.id);
-          } else {
-            setActiveCandidateId(existingCand.id);
-          }
-
-          // Redirect to Candidate Dashboard
           navigate("/candidate");
         } else {
-          // Redirect to Recruiter Dashboard
           navigate("/dashboard");
         }
       }
-    } catch {
-      setErrorMessage("Failed to create account. Please try again.");
+    } catch (err: any) {
+      console.warn("Signup error:", err);
+      setErrorMessage(
+        err?.response?.data?.message ||
+        "Registration failed. User may already exist or validation failed."
+      );
     } finally {
       setIsLoading(false);
     }

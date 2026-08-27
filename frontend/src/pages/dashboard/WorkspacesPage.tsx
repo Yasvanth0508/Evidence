@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useHRStore } from "@/store/hrStore";
+import { workspaceService } from "@/services/workspaceService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -35,6 +36,36 @@ export const WorkspacesPage = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  // Sync backend workspaces into local store on initial load if available
+  useEffect(() => {
+    let isMounted = true;
+    workspaceService
+      .getWorkspaces()
+      .then((backendWsList) => {
+        if (isMounted && Array.isArray(backendWsList)) {
+          backendWsList.forEach((bWs) => {
+            const exists = workspaces.some((w) => w.id === bWs.id || w.name === bWs.name);
+            if (!exists) {
+              createWorkspace({
+                id: bWs.id,
+                name: bWs.name,
+                description: bWs.description || "",
+                track: "Java Spring Boot Backend",
+                defaultDurationMinutes: 90,
+              });
+            }
+          });
+        }
+      })
+      .catch((err) => {
+        // Backend offline or local mode
+        console.debug("Backend workspace sync skipped:", err.message);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const filteredWorkspaces = workspaces.filter(
     (ws) =>
       ws.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -54,9 +85,22 @@ export const WorkspacesPage = () => {
     setIsSubmitting(true);
 
     try {
-      // Simulate network request
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      let createdWsId: string | undefined;
+
+      try {
+        const backendRes = await workspaceService.createWorkspace({
+          name: name.trim(),
+          description: description.trim(),
+        });
+        if (backendRes && backendRes.id) {
+          createdWsId = backendRes.id;
+        }
+      } catch (backendErr) {
+        console.warn("Backend workspace creation API offline, creating locally in store:", backendErr);
+      }
+
       const newWs = createWorkspace({
+        id: createdWsId,
         name,
         description,
         track,

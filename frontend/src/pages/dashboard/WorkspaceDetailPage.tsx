@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useHRStore } from "@/store/hrStore";
+import { workspaceService } from "@/services/workspaceService";
+import { candidateService } from "@/services/candidateService";
+import { assessmentService } from "@/services/assessmentService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,9 +30,11 @@ export const WorkspaceDetailPage = () => {
     getWorkspaceById,
     getCandidatesForWorkspace,
     candidates: globalCandidates,
+    createWorkspace,
     addCandidateToWorkspace,
     removeCandidateFromWorkspace,
     createAndAddCandidate,
+    assignAssessment,
   } = useHRStore();
 
   const workspace = getWorkspaceById(workspaceId);
@@ -46,6 +51,113 @@ export const WorkspaceDetailPage = () => {
   const [newCandidateEmail, setNewCandidateEmail] = useState("");
   const [newCandidateRole, setNewCandidateRole] = useState("Java Backend Developer");
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const [backendAllCandidates, setBackendAllCandidates] = useState<any[]>([]);
+
+  // Sync workspace and candidates from backend
+  useEffect(() => {
+    let isMounted = true;
+    if (!workspaceId) return;
+
+    // 1. Fetch workspace details
+    workspaceService
+      .getWorkspaceById(workspaceId)
+      .then((wsData) => {
+        if (isMounted && wsData) {
+          const currentWs = getWorkspaceById(workspaceId);
+          if (!currentWs) {
+            createWorkspace({
+              id: wsData.id,
+              name: wsData.name,
+              description: wsData.description || "",
+              track: "Java Spring Boot Backend",
+              defaultDurationMinutes: 90,
+            });
+          }
+        }
+      })
+      .catch((err) => {
+        console.debug("Backend workspace fetch failed or offline:", err);
+      });
+
+    // 2. Fetch candidates enrolled in this workspace
+    workspaceService
+      .getCandidatesInWorkspace(workspaceId)
+      .then((candList) => {
+        if (isMounted && Array.isArray(candList)) {
+          candList.forEach((item: any) => {
+            const cand = item.candidate || item;
+            if (!cand || !cand.id) return;
+            createAndAddCandidate(workspaceId, {
+              id: cand.id,
+              name: cand.name || "Candidate",
+              email: cand.email,
+              role: cand.role || "Java Backend Developer",
+            });
+          });
+        }
+      })
+      .catch((err) => {
+        console.debug("Backend candidates fetch failed:", err);
+      });
+
+    // 3. Fetch all registered candidates in DB for search & add
+    candidateService
+      .getAllCandidates()
+      .then((allCands: any) => {
+        if (isMounted && Array.isArray(allCands)) {
+          setBackendAllCandidates(allCands);
+          allCands.forEach((c: any) => {
+            const existing = globalCandidates.find((gc) => gc.id === c.id || gc.email === c.email);
+            if (!existing) {
+              createAndAddCandidate(workspaceId, {
+                id: c.id,
+                name: c.name || "Candidate",
+                email: c.email,
+                role: c.role || "Java Backend Developer",
+              });
+            }
+          });
+        }
+      })
+      .catch((err: any) => {
+        console.debug("Backend all-candidates fetch failed:", err);
+      });
+
+    // 4. Fetch assessments in this workspace
+    assessmentService
+      .getAssessmentsByWorkspace(workspaceId)
+      .then((asmtList) => {
+        if (isMounted && Array.isArray(asmtList)) {
+          asmtList.forEach((asmt: any) => {
+            const candId = asmt.candidate?.id || asmt.candidateId;
+            if (candId) {
+              assignAssessment({
+                id: asmt.id,
+                workspaceId,
+                candidateId: candId,
+                title: asmt.title || "Java Spring Boot Technical Assessment",
+                category: "Spring Boot REST API",
+                repositoryUrl: asmt.repositoryUrl || "https://github.com/scanurag/FoodFrenzy.git",
+                branchName: asmt.branchName || "master",
+                backendRootDirectory: asmt.backendRootDirectory || "",
+                difficulty: asmt.difficulty || "INTERMEDIATE",
+                durationMinutes: asmt.durationMinutes || 90,
+                scheduledDate: asmt.scheduledStartAt ? new Date(asmt.scheduledStartAt).toLocaleDateString() : "Today",
+                scheduledTime: asmt.scheduledStartAt ? new Date(asmt.scheduledStartAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "10:00 AM",
+              });
+            }
+          });
+        }
+      })
+      .catch((err) => {
+        console.debug("Backend assessments fetch failed:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [workspaceId]);
 
   if (!workspace) {
     return (
@@ -70,11 +182,17 @@ export const WorkspaceDetailPage = () => {
       c.displayStatus.toLowerCase().includes(tableSearch.toLowerCase())
   );
 
-  // Global search candidates for Add Candidate modal
-  const searchableCandidates = globalCandidates.filter(
+  // Combined pool of searchable candidates
+  const allKnownCandidates = Array.from(
+    new Map(
+      [...globalCandidates, ...backendAllCandidates].map((c) => [c.id || c.email, c])
+    ).values()
+  );
+
+  const searchableCandidates = allKnownCandidates.filter(
     (c) =>
-      c.name.toLowerCase().includes(candidateSearchQuery.toLowerCase()) ||
-      c.email.toLowerCase().includes(candidateSearchQuery.toLowerCase())
+      c.name?.toLowerCase().includes(candidateSearchQuery.toLowerCase()) ||
+      c.email?.toLowerCase().includes(candidateSearchQuery.toLowerCase())
   );
 
   const handleSelectCandidate = (candId: string) => {
@@ -82,12 +200,12 @@ export const WorkspaceDetailPage = () => {
     setStatusMessage(null);
   };
 
-  const handleAddExistingCandidate = () => {
+  const handleAddExistingCandidate = async () => {
     if (!selectedCandidateId) return;
     setStatusMessage(null);
 
     const isAlreadyInWs = workspace.candidateIds.includes(selectedCandidateId);
-    const addedCand = globalCandidates.find((c) => c.id === selectedCandidateId);
+    const addedCand = allKnownCandidates.find((c) => c.id === selectedCandidateId);
 
     if (isAlreadyInWs) {
       setStatusMessage({
@@ -103,29 +221,48 @@ export const WorkspaceDetailPage = () => {
       return;
     }
 
-    const success = addCandidateToWorkspace(workspaceId, selectedCandidateId);
-    if (success) {
-      setStatusMessage({
-        type: "success",
-        text: `Candidate "${addedCand?.name}" successfully added to ${workspace.name}!`,
-      });
-      setTimeout(() => {
-        setIsAddCandidateModalOpen(false);
-        setSelectedCandidateId(null);
-        setCandidateSearchQuery("");
-        setStatusMessage(null);
-      }, 700);
+    if (addedCand) {
+      try {
+        const enrollRes = await workspaceService.addCandidateToWorkspace(workspaceId, addedCand.email, addedCand.name);
+        const resolvedCand = enrollRes?.candidate || addedCand;
+        createAndAddCandidate(workspaceId, {
+          id: resolvedCand.id,
+          name: resolvedCand.name,
+          email: resolvedCand.email,
+          role: resolvedCand.role || "Java Backend Developer",
+        });
+      } catch (err) {
+        console.warn("Backend candidate addition offline:", err);
+        addCandidateToWorkspace(workspaceId, selectedCandidateId);
+      }
     }
+
+    setStatusMessage({
+      type: "success",
+      text: `Candidate "${addedCand?.name}" successfully added to ${workspace.name}!`,
+    });
+
+    setTimeout(() => {
+      setIsAddCandidateModalOpen(false);
+      setSelectedCandidateId(null);
+      setCandidateSearchQuery("");
+      setStatusMessage(null);
+    }, 700);
   };
 
-  const handleRemoveCandidate = (e: React.MouseEvent, candId: string, candName: string) => {
+  const handleRemoveCandidate = async (e: React.MouseEvent, candId: string, candName: string) => {
     e.stopPropagation();
     if (confirm(`Remove ${candName} from this workspace?`)) {
+      try {
+        await workspaceService.removeCandidateFromWorkspace(workspaceId, candId);
+      } catch (err) {
+        console.warn("Backend candidate removal offline:", err);
+      }
       removeCandidateFromWorkspace(workspaceId, candId);
     }
   };
 
-  const handleCreateAndAddCandidate = (e: React.FormEvent) => {
+  const handleCreateAndAddCandidate = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMessage(null);
 
@@ -134,24 +271,35 @@ export const WorkspaceDetailPage = () => {
       return;
     }
 
-    // Check if email exists
-    const existing = globalCandidates.find(
-      (c) => c.email.toLowerCase() === newCandidateEmail.trim().toLowerCase()
-    );
-    if (existing) {
-      if (workspace.candidateIds.includes(existing.id)) {
-        setStatusMessage({ type: "error", text: "Candidate with this email is already in this workspace." });
-        return;
-      }
-      addCandidateToWorkspace(workspaceId, existing.id);
-      setStatusMessage({ type: "success", text: `Added existing candidate "${existing.name}" to workspace!` });
-    } else {
-      const created = createAndAddCandidate(workspaceId, {
-        name: newCandidateName,
-        email: newCandidateEmail,
+    try {
+      const enrollRes = await workspaceService.addCandidateToWorkspace(
+        workspaceId,
+        newCandidateEmail.trim(),
+        newCandidateName.trim()
+      );
+      const returnedCand = enrollRes?.candidate || {
+        id: enrollRes?.id || `cand-${Date.now()}`,
+        name: newCandidateName.trim(),
+        email: newCandidateEmail.trim(),
+        role: newCandidateRole,
+      };
+
+      createAndAddCandidate(workspaceId, {
+        id: returnedCand.id,
+        name: returnedCand.name,
+        email: returnedCand.email,
         role: newCandidateRole,
       });
-      setStatusMessage({ type: "success", text: `Candidate "${created.name}" created and added to workspace!` });
+
+      setStatusMessage({ type: "success", text: `Candidate "${returnedCand.name}" enrolled and added to workspace!` });
+    } catch (err) {
+      console.warn("Backend candidate enrollment error:", err);
+      createAndAddCandidate(workspaceId, {
+        name: newCandidateName.trim(),
+        email: newCandidateEmail.trim(),
+        role: newCandidateRole,
+      });
+      setStatusMessage({ type: "success", text: `Candidate "${newCandidateName}" added to workspace!` });
     }
 
     setTimeout(() => {

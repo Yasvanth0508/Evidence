@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useHRStore } from "@/store/hrStore";
+import { assessmentService } from "@/services/assessmentService";
+import { workspaceService } from "@/services/workspaceService";
+import { candidateService } from "@/services/candidateService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,7 +19,12 @@ import {
   Check,
   Building2,
   Award,
+  Sparkles,
+  Binary,
+  Code2,
 } from "lucide-react";
+import { AssessmentProcessingModal } from "@/components/dashboard/AssessmentProcessingModal";
+import { AstAnalysisDrawer } from "@/components/dashboard/AstAnalysisDrawer";
 
 export const CandidateDetailPage = () => {
   const { workspaceId = "ws-iit-bombay", candidateId = "cand-001" } = useParams<{
@@ -28,29 +36,123 @@ export const CandidateDetailPage = () => {
     getWorkspaceById,
     getCandidateById,
     getCandidateAssessment,
+    getCandidateAssessmentsInWorkspace,
+    createWorkspace,
+    createAndAddCandidate,
     assignAssessment,
     updateSelectionStatus,
   } = useHRStore();
 
   const workspace = getWorkspaceById(workspaceId);
   const candidate = getCandidateById(candidateId);
-  const assessment = getCandidateAssessment(workspaceId, candidateId);
+  const candidateAssessments = getCandidateAssessmentsInWorkspace(workspaceId, candidateId);
+  const latestAssessment = candidateAssessments[0] || getCandidateAssessment(workspaceId, candidateId);
 
   const [isAddAssessmentModalOpen, setIsAddAssessmentModalOpen] = useState(false);
+  const [isProcessingModalOpen, setIsProcessingModalOpen] = useState(false);
+  const [isAstDrawerOpen, setIsAstDrawerOpen] = useState(false);
+  const [activeInspectAssessment, setActiveInspectAssessment] = useState<any>(null);
+  const [activeProgressAssessment, setActiveProgressAssessment] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successToast, setSuccessToast] = useState("");
+  const [lastCreatedAssessmentId, setLastCreatedAssessmentId] = useState<string | undefined>();
 
   // Add Assessment Form State
   const [title, setTitle] = useState("Java Spring Boot Backend Assessment");
   const [category, setCategory] = useState("Spring Boot REST API");
-  const [repositoryUrl, setRepositoryUrl] = useState("https://github.com/example/notes-app.git");
-  const [branchName, setBranchName] = useState("main");
-  const [backendRootDirectory, setBackendRootDirectory] = useState("backend");
+  const [repositoryUrl, setRepositoryUrl] = useState("https://github.com/scanurag/FoodFrenzy.git");
+  const [branchName, setBranchName] = useState("master");
+  const [backendRootDirectory, setBackendRootDirectory] = useState("");
   const [difficulty, setDifficulty] = useState<"EASY" | "INTERMEDIATE" | "DIFFICULT">("INTERMEDIATE");
   const [durationMinutes, setDurationMinutes] = useState(workspace?.defaultDurationMinutes || 90);
-  const [scheduledDate, setScheduledDate] = useState("25 August 2026");
+  const [scheduledDate, setScheduledDate] = useState("26 August 2026");
   const [scheduledTime, setScheduledTime] = useState("10:30 AM");
   const [formError, setFormError] = useState("");
+
+  // Sync workspace, candidates, and assessments from backend
+  useEffect(() => {
+    let isMounted = true;
+    if (!workspaceId) return;
+
+    // 1. Fetch workspace details
+    workspaceService
+      .getWorkspaceById(workspaceId)
+      .then((wsData) => {
+        if (isMounted && wsData) {
+          const currentWs = getWorkspaceById(workspaceId);
+          if (!currentWs) {
+            createWorkspace({
+              id: wsData.id,
+              name: wsData.name,
+              description: wsData.description || "",
+              track: "Java Spring Boot Backend",
+              defaultDurationMinutes: 90,
+            });
+          }
+        }
+      })
+      .catch((err) => {
+        console.debug("Backend workspace sync:", err);
+      });
+
+    // 2. Fetch candidates enrolled in this workspace
+    workspaceService
+      .getCandidatesInWorkspace(workspaceId)
+      .then((candList) => {
+        if (isMounted && Array.isArray(candList)) {
+          candList.forEach((item: any) => {
+            const cand = item.candidate || item;
+            if (!cand || !cand.id) return;
+            createAndAddCandidate(workspaceId, {
+              id: cand.id,
+              name: cand.name || "Candidate",
+              email: cand.email,
+              role: cand.role || "Java Backend Developer",
+            });
+          });
+        }
+      })
+      .catch((err) => {
+        console.debug("Backend candidates sync:", err);
+      });
+
+    // 3. Fetch all assessments for this workspace from backend
+    assessmentService
+      .getAssessmentsByWorkspace(workspaceId)
+      .then((asmtList) => {
+        if (isMounted && Array.isArray(asmtList)) {
+          asmtList.forEach((asmt: any) => {
+            const cId = asmt.candidate?.id || asmt.candidateId;
+            const asmtId = asmt.id || asmt.assessmentId;
+            if (asmtId && (cId === candidateId || !candidateId || candidate?.email === asmt.candidate?.email)) {
+              assignAssessment({
+                id: asmtId,
+                workspaceId,
+                candidateId: candidateId || cId,
+                title: asmt.title || "Java Spring Boot Technical Assessment",
+                category: "Spring Boot REST API",
+                repositoryUrl: asmt.repositoryUrl || "https://github.com/scanurag/FoodFrenzy.git",
+                branchName: asmt.branchName || "master",
+                backendRootDirectory: asmt.backendRootDirectory || "",
+                difficulty: asmt.difficulty || "INTERMEDIATE",
+                durationMinutes: asmt.durationMinutes || 90,
+                status: asmt.status || "SCHEDULED",
+                score: asmt.score,
+                scheduledDate: asmt.scheduledStartAt ? new Date(asmt.scheduledStartAt).toLocaleDateString() : "Today",
+                scheduledTime: asmt.scheduledStartAt ? new Date(asmt.scheduledStartAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "10:00 AM",
+              });
+            }
+          });
+        }
+      })
+      .catch((err) => {
+        console.debug("Backend assessment sync:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [workspaceId, candidateId, candidate?.email]);
 
   if (!candidate || !workspace) {
     return (
@@ -78,9 +180,52 @@ export const CandidateDetailPage = () => {
     setIsSubmitting(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      let createdAsmtId: string | undefined;
+
+      const isUuid = (str?: string) =>
+        Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
+
+      // Calculate start and end ISO times
+      const now = new Date();
+      const scheduledStartAt = new Date(now.getTime() - 1000 * 60).toISOString();
+      const scheduledEndAt = new Date(now.getTime() + 1000 * 60 * (Number(durationMinutes) || 90)).toISOString();
+
+      let targetWsUuid = isUuid(workspaceId) ? workspaceId : "8ffaf7bb-0410-4cfd-a26d-f004a3229036";
+      let targetCandidateUuid = isUuid(candidateId) ? candidateId : "52127120-fa9e-43a1-958a-6a63ef9af8c5";
+
+      if (candidate?.email) {
+        try {
+          const found = await candidateService.searchCandidateByEmail(candidate.email);
+          if (found && found.id) {
+            targetCandidateUuid = found.id;
+          }
+        } catch (searchErr) {
+          console.debug("Candidate search by email:", searchErr);
+        }
+      }
+
+      const apiRes = await assessmentService.createAssessment(targetWsUuid, {
+        candidateId: targetCandidateUuid,
+        title: title.trim(),
+        repositoryUrl: repositoryUrl.trim(),
+        branchName: branchName.trim() || "master",
+        backendRootDirectory: backendRootDirectory.trim() || "",
+        difficulty,
+        durationMinutes: Number(durationMinutes) || 90,
+        scheduledStartAt,
+        scheduledEndAt,
+      });
+
+      const asmtUuid = apiRes?.assessmentId || apiRes?.id;
+      if (!asmtUuid) {
+        throw new Error("Failed to create assessment on backend server.");
+      }
+
+      createdAsmtId = asmtUuid;
+      setLastCreatedAssessmentId(asmtUuid);
 
       assignAssessment({
+        id: createdAsmtId,
         workspaceId,
         candidateId,
         title,
@@ -94,11 +239,13 @@ export const CandidateDetailPage = () => {
         scheduledTime,
       });
 
-      setSuccessToast("Assessment scheduled successfully!");
+      setSuccessToast("Assessment scheduled! AI Generation Pipeline initiated.");
       setIsAddAssessmentModalOpen(false);
+      setIsProcessingModalOpen(true);
       setTimeout(() => setSuccessToast(""), 3000);
-    } catch {
-      setFormError("Failed to assign assessment. Please try again.");
+    } catch (err: any) {
+      console.error("Assessment creation error:", err);
+      setFormError(err.message || "Failed to assign assessment. Please verify repository details.");
     } finally {
       setIsSubmitting(false);
     }
@@ -158,7 +305,7 @@ export const CandidateDetailPage = () => {
             className="gap-2 font-semibold bg-[#F05323] hover:bg-[#d94417] text-white shadow-xs text-xs"
           >
             <PlusCircle className="w-4 h-4" />
-            {assessment ? "Update Assessment" : "Add Assessment"}
+            Add Assessment
           </Button>
         </div>
       </div>
@@ -222,24 +369,24 @@ export const CandidateDetailPage = () => {
               Assessment Status
             </span>
             <div className="mt-1">
-              {assessment?.status === "COMPLETED" ? (
+              {latestAssessment?.status === "COMPLETED" ? (
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-black text-emerald-600">
-                    {assessment.score}%
+                    {latestAssessment.score}%
                   </span>
                   <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                     Taken & Completed
                   </span>
                 </div>
-              ) : assessment?.status === "SCHEDULED" ? (
+              ) : (latestAssessment?.status as string) === "SCHEDULED" || (latestAssessment?.status as string) === "READY" ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
                   <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                  Scheduled
+                  {latestAssessment.status} ({candidateAssessments.length})
                 </span>
-              ) : assessment?.status === "ASSIGNED" ? (
+              ) : (latestAssessment?.status as string) === "ASSIGNED" || (latestAssessment?.status as string) === "IN_PROGRESS" ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
                   <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  Assigned
+                  Assigned ({candidateAssessments.length})
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">
@@ -256,126 +403,177 @@ export const CandidateDetailPage = () => {
       <div className="bg-white rounded-3xl border border-gray-200/90 p-6 sm:p-8 shadow-2xs space-y-6">
         <div className="flex items-center justify-between pb-4 border-b border-gray-100">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">
-              Technical Assessment Assignment
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-bold text-gray-900">
+                Technical Assessment Assignments
+              </h3>
+              <span className="px-2.5 py-0.5 text-xs font-extrabold rounded-full bg-orange-100 text-[#F05323]">
+                {candidateAssessments.length}
+              </span>
+            </div>
             <p className="text-xs text-gray-500">
-              Project-specific Java Spring Boot coding test configuration and schedule.
+              All project-specific Java Spring Boot coding assessments configured for {candidate.name}.
             </p>
           </div>
 
-          {!assessment && (
+          <div className="flex items-center gap-2">
             <Button
               size="sm"
               onClick={() => setIsAddAssessmentModalOpen(true)}
-              className="gap-1.5 font-semibold bg-[#F05323] hover:bg-[#d94417] text-xs"
+              className="gap-1.5 font-semibold bg-[#F05323] hover:bg-[#d94417] text-white shadow-xs text-xs"
             >
               <PlusCircle className="w-3.5 h-3.5" />
-              Add Assessment
+              {candidateAssessments.length > 0 ? "Add Another Assessment" : "Add Assessment"}
             </Button>
-          )}
+          </div>
         </div>
 
-        {/* Assessment Card View */}
-        {assessment ? (
+        {/* List of all candidate assessments */}
+        {candidateAssessments.length > 0 ? (
           <div className="space-y-6">
-            <div className="bg-gray-50/70 rounded-2xl border border-gray-200 p-6 space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#F05323]">
-                    {assessment.category}
-                  </span>
-                  <h4 className="text-xl font-extrabold text-gray-900 mt-0.5">
-                    {assessment.title}
-                  </h4>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-orange-100/70 text-[#F05323] border border-orange-200">
-                    {assessment.difficulty} Difficulty
-                  </span>
-                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-gray-200/80 text-gray-700">
-                    {assessment.durationMinutes} mins
-                  </span>
-                </div>
-              </div>
-
-              {/* Scheduled Date & Time Callout Box */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-2xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
-                    <Calendar className="w-5 h-5" />
-                  </div>
+            {candidateAssessments.map((asmt, idx) => (
+              <div key={asmt.id || idx} className="bg-gray-50/70 rounded-2xl border border-gray-200 p-6 space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block">
-                      Assessment Date
-                    </span>
-                    <span className="text-sm font-extrabold text-gray-900 block">
-                      {assessment.scheduledDate}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0">
-                    <Clock className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block">
-                      Assessment Time
-                    </span>
-                    <span className="text-sm font-extrabold text-gray-900 block">
-                      {assessment.scheduledTime}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Repository Configuration Details */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
-                <div className="bg-white p-3 rounded-xl border border-gray-200">
-                  <span className="text-gray-400 block text-[10px] uppercase font-semibold">Repository URL</span>
-                  <span className="text-gray-900 font-medium truncate block mt-0.5">
-                    {assessment.repositoryUrl}
-                  </span>
-                </div>
-                <div className="bg-white p-3 rounded-xl border border-gray-200">
-                  <span className="text-gray-400 block text-[10px] uppercase font-semibold">Branch</span>
-                  <span className="text-gray-900 font-medium block mt-0.5">
-                    {assessment.branchName}
-                  </span>
-                </div>
-                <div className="bg-white p-3 rounded-xl border border-gray-200">
-                  <span className="text-gray-400 block text-[10px] uppercase font-semibold">Backend Root Dir</span>
-                  <span className="text-gray-900 font-medium block mt-0.5">
-                    {assessment.backendRootDirectory}
-                  </span>
-                </div>
-              </div>
-
-              {/* Evaluation Outcome if Completed */}
-              {assessment.status === "COMPLETED" && (
-                <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                      <h5 className="text-sm font-bold text-emerald-950">
-                        Assessment Completed & Evaluated
-                      </h5>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-[#F05323]">
+                        {asmt.category || "Spring Boot REST API"}
+                      </span>
+                      <span className="text-[10px] font-mono text-gray-400">
+                        ID: {asmt.id}
+                      </span>
                     </div>
-                    <p className="text-xs text-emerald-800">
-                      Objective evaluation score: <strong>{assessment.score} / 100</strong> ({assessment.passedTests || 9} of {assessment.totalTests || 10} hidden test cases passed).
-                    </p>
+                    <h4 className="text-xl font-extrabold text-gray-900 mt-0.5">
+                      {asmt.title}
+                    </h4>
                   </div>
 
-                  <Link to={`/dashboard/candidates/${assessment.id}`}>
-                    <Button size="sm" className="gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">
-                      View Full Technical Report <ExternalLink className="w-3.5 h-3.5" />
-                    </Button>
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-orange-100/70 text-[#F05323] border border-orange-200">
+                      {asmt.difficulty} Difficulty
+                    </span>
+                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-gray-200/80 text-gray-700">
+                      {asmt.durationMinutes} mins
+                    </span>
+                  </div>
                 </div>
-              )}
-            </div>
+
+                {/* Scheduled Date & Time Callout Box */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+                      <Calendar className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block">
+                        Assessment Date
+                      </span>
+                      <span className="text-sm font-extrabold text-gray-900 block">
+                        {asmt.scheduledDate}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block">
+                        Assessment Time
+                      </span>
+                      <span className="text-sm font-extrabold text-gray-900 block">
+                        {asmt.scheduledTime}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Repository Configuration Details */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+                  <div className="bg-white p-3 rounded-xl border border-gray-200">
+                    <span className="text-gray-400 block text-[10px] uppercase font-semibold">Repository URL</span>
+                    <span className="text-gray-900 font-medium truncate block mt-0.5" title={asmt.repositoryUrl}>
+                      {asmt.repositoryUrl}
+                    </span>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-gray-200">
+                    <span className="text-gray-400 block text-[10px] uppercase font-semibold">Branch</span>
+                    <span className="text-gray-900 font-medium block mt-0.5">
+                      {asmt.branchName}
+                    </span>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-gray-200">
+                    <span className="text-gray-400 block text-[10px] uppercase font-semibold">Backend Root Dir</span>
+                    <span className="text-gray-900 font-medium block mt-0.5">
+                      {asmt.backendRootDirectory || "(root)"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Bar for Inspection & Pipeline Progress */}
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <a
+                    href={`/assessment/${asmt.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#F05323] hover:bg-[#d94417] text-white text-xs font-bold shadow-xs transition-colors"
+                  >
+                    <Code2 className="w-3.5 h-3.5" />
+                    Launch Assessment IDE
+                  </a>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setActiveInspectAssessment(asmt);
+                      setIsAstDrawerOpen(true);
+                    }}
+                    className="text-xs font-bold gap-2 border-orange-200 text-[#F05323] hover:bg-orange-50"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#F05323]" />
+                    Inspect Codebase (AST) & AI Feature Spec
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setActiveProgressAssessment(asmt);
+                      setIsProcessingModalOpen(true);
+                    }}
+                    className="text-xs font-semibold gap-2 border-gray-200 text-gray-700 hover:bg-gray-100"
+                  >
+                    <Binary className="w-3.5 h-3.5 text-gray-500" />
+                    View AI Pipeline Progress
+                  </Button>
+                </div>
+
+                {/* Evaluation Outcome if Completed */}
+                {asmt.status === "COMPLETED" && (
+                  <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                        <h5 className="text-sm font-bold text-emerald-950">
+                          Assessment Completed & Evaluated
+                        </h5>
+                      </div>
+                      <p className="text-xs text-emerald-800">
+                        Objective evaluation score: <strong>{asmt.score} / 100</strong>.
+                      </p>
+                    </div>
+
+                    <Link to={`/dashboard/candidates/${asmt.id}`}>
+                      <Button size="sm" className="gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs">
+                        View Full Technical Report <ExternalLink className="w-3.5 h-3.5" />
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         ) : (
           /* Empty Assessment State */
@@ -632,6 +830,29 @@ export const CandidateDetailPage = () => {
           </div>
         </div>
       )}
+
+      {/* Assessment Pipeline Processing Progress Modal */}
+      <AssessmentProcessingModal
+        isOpen={isProcessingModalOpen}
+        onClose={() => {
+          setIsProcessingModalOpen(false);
+          setActiveProgressAssessment(null);
+        }}
+        assessmentTitle={activeProgressAssessment?.title || latestAssessment?.title || title}
+        repositoryUrl={activeProgressAssessment?.repositoryUrl || latestAssessment?.repositoryUrl || repositoryUrl}
+        assessmentId={activeProgressAssessment?.id || lastCreatedAssessmentId || latestAssessment?.id}
+      />
+
+      {/* AST Codebase & AI Feature Spec Inspector Drawer */}
+      <AstAnalysisDrawer
+        isOpen={isAstDrawerOpen}
+        onClose={() => {
+          setIsAstDrawerOpen(false);
+          setActiveInspectAssessment(null);
+        }}
+        assessmentTitle={activeInspectAssessment?.title || latestAssessment?.title || title}
+        assessmentId={activeInspectAssessment?.id || lastCreatedAssessmentId || latestAssessment?.id}
+      />
     </div>
   );
 };

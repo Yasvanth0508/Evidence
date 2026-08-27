@@ -239,3 +239,44 @@ export interface ExecutionState {
   startedAt?: string;
   stoppedAt?: string;
 }
+
+// ------------------------------------------
+// Test Case Audit & Codebase Analysis Types
+// ------------------------------------------
+export interface TestCaseAuditItem {
+  id: string;
+  testCaseNumber: number;
+  testType: "BUSINESS_LOGIC" | "INTEGRATION" | "SYNTAX" | "DATA_FLOW";
+  httpMethod: string;
+  endpoint: string;
+  requestData?: string;
+  expectedStatusCode: number;
+  expectedResponse?: string;
+  actualStatusCode?: number;
+  actualResponse?: string;
+  assertions?: string;
+  weight: number;
+  executionTimeMs?: number;
+  status: "PASSED" | "FAILED" | "PENDING";
+  failureReason?: string;
+}
+
+export interface AstCodebaseAnalysis {
+  analysisStatus: "COMPLETED" | "RUNNING" | "FAILED";
+  projectStructure: {
+    folders: string[];
+    files: string[];
+  };
+  sourceCodeStructure: {
+    controllers: string[];
+    services: string[];
+    repositories: string[];
+    entities: string[];
+  };
+  contentDetails: {
+    endpoints: Array<{ method: string; path: string; controllerMethod: string }>;
+    entityFields: Array<{ entity: string; fields: string[] }>;
+    serviceMethods: Array<{ service: string; methods: string[] }>;
+  };
+}
+

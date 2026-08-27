@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useHRStore } from "@/store/hrStore";
 import { useAuthStore } from "@/store/authStore";
+import { dashboardService } from "@/services/dashboardService";
 import { ScheduledAssessmentCard } from "@/components/candidate/ScheduledAssessmentCard";
 import { CompletedAssessmentCard } from "@/components/candidate/CompletedAssessmentCard";
 import { Button } from "@/components/ui/button";
@@ -22,22 +23,61 @@ export const CandidateDashboard = () => {
     setActiveCandidateId,
     getCandidateAssessments,
     getCandidateById,
+    assignAssessment,
   } = useHRStore();
+
+  useEffect(() => {
+    let isMounted = true;
+    dashboardService.getCandidateDashboard()
+      .then((data) => {
+        if (isMounted && data) {
+          (data.scheduledAssessments || []).forEach((asmt) => {
+            assignAssessment({
+              id: asmt.assessmentId,
+              workspaceId: "ws-live",
+              candidateId: activeCandidateId,
+              title: `${asmt.workspaceName} Assessment`,
+              repositoryUrl: "https://github.com/scanurag/FoodFrenzy.git",
+              branchName: "master",
+              difficulty: (asmt.difficulty as any) || "INTERMEDIATE",
+              durationMinutes: asmt.durationMinutes || 90,
+              scheduledDate: new Date(asmt.scheduledStartAt).toLocaleDateString(),
+              scheduledTime: new Date(asmt.scheduledStartAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            });
+          });
+        }
+      })
+      .catch((err) => {
+        console.debug("Candidate dashboard sync skipped:", err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [activeCandidateId]);
 
   // Find candidate profile matching active ID or logged-in user
   const activeCandidate = useMemo(() => {
-    const fromId = getCandidateById(activeCandidateId);
+    const fromId = activeCandidateId ? getCandidateById(activeCandidateId) : null;
     if (fromId) return fromId;
-    const fromEmail = candidates.find(
-      (c) => c.email.toLowerCase() === user?.email?.toLowerCase()
-    );
-    return fromEmail || candidates[0];
+    const fromEmail = user?.email
+      ? candidates.find((c) => c.email.toLowerCase() === user.email.toLowerCase())
+      : null;
+    if (fromEmail) return fromEmail;
+    if (candidates.length > 0) return candidates[0];
+    return {
+      id: user?.id || "cand-current",
+      name: user?.name || "Candidate",
+      email: user?.email || "candidate@example.com",
+      role: "Java Backend Developer",
+      isSelected: false,
+    };
   }, [activeCandidateId, user, candidates, getCandidateById]);
 
   // Fetch assessments for this candidate
   const { completed, scheduled } = useMemo(() => {
+    if (!activeCandidate?.id) return { completed: [], scheduled: [] };
     return getCandidateAssessments(activeCandidate.id);
-  }, [activeCandidate.id, getCandidateAssessments]);
+  }, [activeCandidate?.id, getCandidateAssessments]);
 
   const [activeTab, setActiveTab] = useState<"ALL" | "SCHEDULED" | "COMPLETED">("ALL");
 

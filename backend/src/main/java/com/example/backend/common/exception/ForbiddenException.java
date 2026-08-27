@@ -1,6 +1,7 @@
 package com.example.backend.common.exception;
 
 public class ForbiddenException extends RuntimeException {
+
     private final String errorCode;
 
     public ForbiddenException(String message) {

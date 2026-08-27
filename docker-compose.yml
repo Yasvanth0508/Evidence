@@ -1,8 +1,12 @@
 version: '3.8'
 
 services:
+  # -----------------------------------------------------------------
+  # PostgreSQL Database Container
+  # Accessible from host at localhost:5432
+  # -----------------------------------------------------------------
   db:
-    image: postgres:latest
+    image: postgres:16-alpine
     container_name: evidence_db
     environment:
       POSTGRES_DB: evidence_db
@@ -11,9 +15,35 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d evidence_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------------------------------------------------
+  # pgAdmin 4 - Visual Web GUI for Database Exploration
+  # Open in browser: http://localhost:5050
+  # Login: admin@evidence.local / admin
+  # -----------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: evidence_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@evidence.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
+  # -----------------------------------------------------------------
+  # Spring Boot Backend
+  # -----------------------------------------------------------------
   backend:
     build: 
       context: ./backend
@@ -28,9 +58,13 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
+  # -----------------------------------------------------------------
+  # React + Vite Frontend
+  # -----------------------------------------------------------------
   frontend:
     build: 
       context: ./frontend

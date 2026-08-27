@@ -179,6 +179,19 @@ export const useRunApplication = () => {
   });
 };
 
+export const useStopApplication = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (assessmentId: string) => {
+      return await assessmentService.stopApplication(assessmentId);
+    },
+    onSuccess: (_, assessmentId) => {
+      queryClient.invalidateQueries({ queryKey: ["execution-status", assessmentId] });
+      queryClient.invalidateQueries({ queryKey: ["execution-logs", assessmentId] });
+    },
+  });
+};
+
 export const useExecutionLogs = (assessmentId: string) => {
   return useQuery({
     queryKey: ["execution-logs", assessmentId],

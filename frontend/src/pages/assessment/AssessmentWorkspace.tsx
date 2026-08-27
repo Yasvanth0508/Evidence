@@ -9,6 +9,7 @@ import {
   useCreateFile,
   useDeleteFile,
   useRunApplication,
+  useStopApplication,
   useSubmitAssessment,
   useFeatureSpec,
 } from "@/hooks/useAssessments";
@@ -18,6 +19,7 @@ import { IdeHeader } from "@/components/ide/IdeHeader";
 import { FileExplorer } from "@/components/ide/FileExplorer";
 import { TerminalConsole } from "@/components/ide/TerminalConsole";
 import { FeatureSpecDrawer } from "@/components/ide/FeatureSpecDrawer";
+import { SubmissionLoadingOverlay } from "@/components/ide/SubmissionLoadingOverlay";
 import {
   Loader2,
   Save,
@@ -46,6 +48,7 @@ export const AssessmentWorkspace = () => {
   const createFileMutation = useCreateFile();
   const deleteFileMutation = useDeleteFile();
   const runMutation = useRunApplication();
+  const stopMutation = useStopApplication();
   const submitMutation = useSubmitAssessment();
 
   const [fileContent, setFileContent] = useState<string>("");
@@ -54,6 +57,18 @@ export const AssessmentWorkspace = () => {
   const [isRunningBuild, setIsRunningBuild] = useState(false);
   const [buildStatus, setBuildStatus] = useState<"IDLE" | "BUILDING" | "SUCCESS" | "FAILED">("IDLE");
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+
+  // Dark / Light Theme State
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    const saved = localStorage.getItem("evidence_ide_theme");
+    return saved === "light" ? "light" : "dark";
+  });
+
+  const handleToggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    localStorage.setItem("evidence_ide_theme", next);
+  };
 
   // Layout resizing & collapse states
   const [sidebarWidth, setSidebarWidth] = useState<number>(260);
@@ -125,10 +140,13 @@ export const AssessmentWorkspace = () => {
     }
   }, [fileTree, activeFilePath, findFirstFile]);
 
+  // Toggle proctoring (disabled for testing)
+  const PROCTORING_ENABLED = false;
+
   // Initial terminal logs
   const [logs, setLogs] = useState<string[]>([
     "[INFO] Initializing candidate sandbox workspace...",
-    "[INFO] Anti-cheat proctoring active: tab switching is monitored (>2 switches triggers auto-submit).",
+    "[INFO] Tab switching proctoring is disabled for testing.",
     "[INFO] Workspace isolated on disk. Ready for edits.",
     "[INFO] Tip: Click 'Run Build' in top bar to compile and test against container.",
   ]);
@@ -278,39 +296,93 @@ export const AssessmentWorkspace = () => {
   };
 
   const handleRunBuild = async () => {
+    if (!id) return;
     setIsRunningBuild(true);
     setBuildStatus("BUILDING");
     if (isTerminalCollapsed) setIsTerminalCollapsed(false);
-    setLogs((prev) => [
-      ...prev,
-      `[${new Date().toLocaleTimeString()}] Starting Docker compilation container for assessment ${id}...`,
-      "[INFO] Executing: ./mvnw clean package spring-boot:run",
+    setLogs([
+      `[${new Date().toLocaleTimeString()}] Starting build and execution pipeline for assessment...`,
+      "[INFO] Saving latest workspace changes to candidate sandbox...",
+      "[INFO] Step 1/3: Compiling and packaging Java Spring Boot application...",
     ]);
 
     try {
+      if (activeFilePath && isDirty) {
+        await saveFileMutation.mutateAsync({
+          assessmentId: id,
+          path: activeFilePath,
+          content: fileContent,
+        });
+        setIsDirty(false);
+      }
+
       const res = await runMutation.mutateAsync(id);
+
+      try {
+        const logRes = await assessmentService.getExecutionLogs(id);
+        if (logRes && logRes.logs) {
+          const rawLines = logRes.logs.split("\n").filter((l: string) => l.trim().length > 0);
+          setLogs(rawLines);
+        }
+      } catch (logErr) {
+        console.debug("Could not fetch execution logs:", logErr);
+      }
+
       setIsRunningBuild(false);
-      setBuildStatus("SUCCESS");
-      setLogs((prev) => [
-        ...prev,
-        `[INFO] Build completed with status: ${res.status}`,
-        `[INFO] Ephemeral sandbox listening on dynamic port: ${res.port || 18080}`,
-        "[INFO] Tomcat started on port(s): 8080 (http)",
-        "[INFO] Started Application in 2.148 seconds",
-        "✔ Application container running without crashes!",
-      ]);
+      if (res.status === "FAILED") {
+        setBuildStatus("FAILED");
+      } else {
+        setBuildStatus("SUCCESS");
+        setLogs((prev) => [
+          ...prev,
+          `✔ Application is running! Sandbox listening on dynamic port: ${res.port || 18080}`,
+        ]);
+      }
     } catch (err: any) {
       setIsRunningBuild(false);
       setBuildStatus("FAILED");
+      try {
+        const logRes = await assessmentService.getExecutionLogs(id);
+        if (logRes && logRes.logs) {
+          const rawLines = logRes.logs.split("\n").filter((l: string) => l.trim().length > 0);
+          setLogs(rawLines);
+        } else {
+          setLogs((prev) => [
+            ...prev,
+            `[ERROR] Execution failed: ${err.message || "Unknown error occurred"}`,
+            "✗ Build failed with error",
+          ]);
+        }
+      } catch {
+        setLogs((prev) => [
+          ...prev,
+          `[ERROR] Execution failed: ${err.message || "Unknown error occurred"}`,
+          "✗ Build failed with error",
+        ]);
+      }
+    }
+  };
+  const handleStopApplication = async () => {
+    if (!id) return;
+    try {
+      await stopMutation.mutateAsync(id);
+      setBuildStatus("IDLE");
       setLogs((prev) => [
         ...prev,
-        `[ERROR] Compilation / container startup failed: ${err.message || "Unknown error"}`,
-        "✗ Build failed with exit code 1",
+        `[${new Date().toLocaleTimeString()}] Application container stopped by candidate.`,
+      ]);
+    } catch (err: any) {
+      console.error("Stop application error:", err);
+      setBuildStatus("IDLE");
+      setLogs((prev) => [
+        ...prev,
+        `[${new Date().toLocaleTimeString()}] Application stopped.`,
       ]);
     }
   };
 
   const handleConfirmSubmit = useCallback(async () => {
+    if (!id || submitMutation.isPending) return;
     try {
       await submitMutation.mutateAsync(id);
       setIsSubmitModalOpen(false);
@@ -322,9 +394,9 @@ export const AssessmentWorkspace = () => {
     }
   }, [id, submitMutation, navigate]);
 
-  // Anti-Cheat Tab Switching Monitor: Auto-Submit if > 2 switches occur
+  // Anti-Cheat Tab Switching Monitor (disabled when PROCTORING_ENABLED is false)
   useEffect(() => {
-    if (!id) return;
+    if (!id || !PROCTORING_ENABLED) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden && !isAutoSubmitted) {
@@ -348,7 +420,7 @@ export const AssessmentWorkspace = () => {
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [id, isAutoSubmitted, recordTabSwitch, handleConfirmSubmit]);
+  }, [id, isAutoSubmitted, recordTabSwitch, handleConfirmSubmit, PROCTORING_ENABLED]);
 
   if (isAssessmentLoading || isTreeLoading) {
     return (
@@ -362,20 +434,25 @@ export const AssessmentWorkspace = () => {
   }
 
   const activeFileName = activeFilePath.split("/").pop() || "Editor";
+  const isDark = theme === "dark";
 
   return (
     <div
       className={cn(
-        "h-screen flex flex-col bg-[#F9FAFB] overflow-hidden font-sans",
-        (isDraggingSidebar || isDraggingTerminal) && "select-none cursor-default"
+        "h-screen flex flex-col overflow-hidden select-none font-sans transition-colors",
+        isDark ? "bg-slate-900 text-gray-100" : "bg-gray-100 text-gray-900"
       )}
     >
-      {/* 1. Top IDE Header */}
+      {/* 1. IDE Header */}
       <IdeHeader
-        projectName={assessment?.projectName || "E-Commerce Platform"}
+        projectName={assessment?.projectName || (assessment as any)?.title || "Spring Boot Candidate Assessment"}
         initialDurationMinutes={assessment?.durationMinutes || 90}
         isRunningBuild={isRunningBuild}
+        isApplicationRunning={buildStatus === "SUCCESS"}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
         onRunBuild={handleRunBuild}
+        onStopApplication={handleStopApplication}
         onSubmitAssessment={() => setIsSubmitModalOpen(true)}
         onToggleFeatureSpec={() => setIsSpecDrawerOpen(!isSpecDrawerOpen)}
       />
@@ -391,6 +468,7 @@ export const AssessmentWorkspace = () => {
             <FileExplorer
               files={fileTree}
               activeFilePath={activeFilePath}
+              theme={theme}
               onSelectFile={(path) => setActiveFilePath(path)}
               onCreateFile={handleCreateFile}
               onDeleteFile={handleDeleteFile}
@@ -400,17 +478,32 @@ export const AssessmentWorkspace = () => {
           </div>
         ) : (
           /* Slim Sidebar Rail when Collapsed */
-          <div className="w-10 h-full bg-gray-100/90 border-r border-gray-200 flex flex-col items-center py-2 gap-2 select-none flex-shrink-0">
+          <div
+            className={cn(
+              "w-10 h-full border-r flex flex-col items-center py-2 gap-2 select-none flex-shrink-0 transition-colors",
+              isDark
+                ? "bg-[#0F172A] border-slate-800 text-slate-400"
+                : "bg-gray-100/90 border-gray-200 text-gray-500"
+            )}
+          >
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed(false)}
-              className="p-1.5 text-gray-500 hover:text-[#F05323] hover:bg-gray-200 rounded-md transition-colors"
+              className={cn(
+                "p-1.5 rounded-md transition-colors",
+                isDark
+                  ? "text-slate-400 hover:text-[#F05323] hover:bg-slate-800"
+                  : "text-gray-500 hover:text-[#F05323] hover:bg-gray-200"
+              )}
               title="Open File Explorer (Expand Sidebar)"
             >
               <PanelLeftOpen className="w-4 h-4" />
             </button>
             <span
-              className="text-[10px] uppercase font-bold text-gray-400 tracking-wider rotate-90 mt-6 whitespace-nowrap cursor-pointer hover:text-gray-700"
+              className={cn(
+                "text-[10px] uppercase font-bold tracking-wider rotate-90 mt-6 whitespace-nowrap cursor-pointer transition-colors",
+                isDark ? "text-slate-500 hover:text-slate-200" : "text-gray-400 hover:text-gray-700"
+              )}
               onClick={() => setIsSidebarCollapsed(false)}
             >
               Explorer
@@ -423,7 +516,10 @@ export const AssessmentWorkspace = () => {
           <div
             onMouseDown={handleSidebarMouseDown}
             className={cn(
-              "w-1 hover:w-1.5 bg-gray-200 hover:bg-[#F05323] cursor-col-resize active:bg-[#F05323] transition-colors flex-shrink-0 relative group select-none z-10",
+              "w-1 hover:w-1.5 cursor-col-resize active:bg-[#F05323] transition-colors flex-shrink-0 relative group select-none z-10",
+              isDark
+                ? "bg-slate-800 hover:bg-[#F05323]"
+                : "bg-gray-200 hover:bg-[#F05323]",
               isDraggingSidebar && "w-1.5 bg-[#F05323]"
             )}
             title="Drag to resize sidebar"
@@ -431,22 +527,46 @@ export const AssessmentWorkspace = () => {
         )}
 
         {/* Right Column: Code Editor + Terminal Console (Flex column) */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-white min-w-0">
+        <div
+          className={cn(
+            "flex-1 flex flex-col h-full overflow-hidden min-w-0 transition-colors",
+            isDark ? "bg-[#1E1E1E]" : "bg-white"
+          )}
+        >
           {/* Active File Tab Bar */}
-          <div className="h-10 bg-gray-100/90 border-b border-gray-200 px-3 flex items-center justify-between select-none flex-shrink-0">
+          <div
+            className={cn(
+              "h-10 border-b px-3 flex items-center justify-between select-none flex-shrink-0 transition-colors",
+              isDark
+                ? "bg-[#0F172A] border-slate-800 text-slate-300"
+                : "bg-gray-100/90 border-gray-200 text-gray-700"
+            )}
+          >
             <div className="flex items-center gap-2 truncate min-w-0">
               {isSidebarCollapsed && (
                 <button
                   type="button"
                   onClick={() => setIsSidebarCollapsed(false)}
-                  className="p-1 text-gray-500 hover:text-gray-900 hover:bg-gray-200 rounded mr-1"
+                  className={cn(
+                    "p-1 rounded mr-1 transition-colors",
+                    isDark
+                      ? "text-slate-400 hover:text-white hover:bg-slate-800"
+                      : "text-gray-500 hover:text-gray-900 hover:bg-gray-200"
+                  )}
                   title="Expand File Explorer"
                 >
                   <PanelLeftOpen className="w-3.5 h-3.5" />
                 </button>
               )}
 
-              <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-t-lg border-t-2 border-[#F05323] text-xs font-mono font-semibold text-gray-900 shadow-2xs truncate">
+              <div
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-t-lg border-t-2 border-[#F05323] text-xs font-mono font-semibold truncate transition-colors",
+                  isDark
+                    ? "bg-[#1E293B] text-slate-100 shadow-sm"
+                    : "bg-white text-gray-900 shadow-2xs"
+                )}
+              >
                 <FileCode className="w-3.5 h-3.5 text-[#F05323] flex-shrink-0" />
                 <span className="truncate">{activeFileName}</span>
                 {isDirty && (
@@ -459,7 +579,12 @@ export const AssessmentWorkspace = () => {
               <button
                 onClick={handleSave}
                 disabled={!isDirty || saveFileMutation.isPending}
-                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-200 disabled:opacity-40 transition-colors"
+                className={cn(
+                  "flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md disabled:opacity-40 transition-colors",
+                  isDark
+                    ? "text-slate-300 hover:text-white hover:bg-slate-800"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+                )}
                 title="Save changes (Ctrl+S)"
               >
                 <Save className="w-3.5 h-3.5" />
@@ -469,15 +594,25 @@ export const AssessmentWorkspace = () => {
           </div>
 
           {/* Monaco Editor Pane */}
-          <div className="flex-1 relative overflow-hidden bg-white">
+          <div
+            className={cn(
+              "flex-1 relative overflow-hidden transition-colors",
+              isDark ? "bg-[#1E1E1E]" : "bg-white"
+            )}
+          >
             {isFileLoading ? (
               <div className="h-full flex items-center justify-center space-x-2 text-xs text-gray-400">
                 <Loader2 className="w-4 h-4 animate-spin text-[#F05323]" />
                 <span>Loading file content...</span>
               </div>
             ) : !activeFilePath ? (
-              <div className="h-full flex flex-col items-center justify-center space-y-2 text-xs text-gray-400">
-                <FileCode className="w-8 h-8 text-gray-300" />
+              <div
+                className={cn(
+                  "h-full flex flex-col items-center justify-center space-y-2 text-xs",
+                  isDark ? "text-slate-500" : "text-gray-400"
+                )}
+              >
+                <FileCode className={cn("w-8 h-8", isDark ? "text-slate-600" : "text-gray-300")} />
                 <p>Select a file from the explorer or create a new one to begin editing.</p>
               </div>
             ) : (
@@ -490,7 +625,7 @@ export const AssessmentWorkspace = () => {
                 onMount={(editor) => {
                   editorRef.current = editor;
                 }}
-                theme="vs-light"
+                theme={theme === "dark" ? "vs-dark" : "vs-light"}
                 options={{
                   fontSize: 14,
                   fontFamily: "Consolas, 'Cascadia Code', 'Courier New', monospace",
@@ -519,7 +654,10 @@ export const AssessmentWorkspace = () => {
             <div
               onMouseDown={handleTerminalMouseDown}
               className={cn(
-                "h-1 hover:h-1.5 bg-gray-300/80 hover:bg-[#F05323] cursor-row-resize active:bg-[#F05323] transition-colors flex-shrink-0 select-none z-10",
+                "h-1 hover:h-1.5 cursor-row-resize active:bg-[#F05323] transition-colors flex-shrink-0 select-none z-10",
+                isDark
+                  ? "bg-slate-800 hover:bg-[#F05323]"
+                  : "bg-gray-300/80 hover:bg-[#F05323]",
                 isDraggingTerminal && "h-1.5 bg-[#F05323]"
               )}
               title="Drag to resize terminal panel"
@@ -558,22 +696,35 @@ export const AssessmentWorkspace = () => {
           constraints: ["Follow standard Spring Boot conventions", "Pass all unit and integration test assertions"],
         }}
         isOpen={isSpecDrawerOpen}
+        theme={theme}
         onClose={() => setIsSpecDrawerOpen(false)}
       />
 
       {/* 4. Submit Assessment Confirmation Modal */}
       {isSubmitModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="w-12 h-12 rounded-full bg-orange-50 text-[#F05323] flex items-center justify-center mx-auto">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div
+            className={cn(
+              "rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-200 border",
+              isDark
+                ? "bg-slate-900 border-slate-700 text-slate-100"
+                : "bg-white border-gray-100 text-gray-900"
+            )}
+          >
+            <div className="w-12 h-12 rounded-full bg-orange-500/10 text-[#F05323] flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-6 h-6" />
             </div>
 
             <div className="text-center space-y-1">
-              <h3 className="text-lg font-extrabold text-gray-900">
+              <h3 className="text-lg font-extrabold">
                 Submit Technical Assessment?
               </h3>
-              <p className="text-xs text-gray-500 leading-relaxed">
+              <p
+                className={cn(
+                  "text-xs leading-relaxed",
+                  isDark ? "text-slate-400" : "text-gray-500"
+                )}
+              >
                 Are you ready to submit your code? Once submitted, the hidden automated test suite will execute and generate your evaluation score report.
               </p>
             </div>
@@ -581,24 +732,42 @@ export const AssessmentWorkspace = () => {
             <div className="flex items-center gap-3 pt-2">
               <Button
                 variant="outline"
-                className="flex-1 font-semibold text-xs"
+                disabled={submitMutation.isPending}
+                className={cn(
+                  "flex-1 font-semibold text-xs",
+                  isDark ? "border-slate-700 text-slate-300 hover:bg-slate-800" : ""
+                )}
                 onClick={() => setIsSubmitModalOpen(false)}
               >
                 Continue Coding
               </Button>
               <Button
-                className="flex-1 font-semibold text-xs shadow-sm"
+                disabled={submitMutation.isPending}
+                className="flex-1 font-semibold text-xs shadow-sm gap-1.5"
                 onClick={handleConfirmSubmit}
               >
-                Yes, Submit Code
+                {submitMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Evaluating...</span>
+                  </>
+                ) : (
+                  <span>Yes, Submit Code</span>
+                )}
               </Button>
             </div>
           </div>
         </div>
       )}
 
+      {/* 5. Submitting & Blackbox Evaluation Loading Overlay */}
+      <SubmissionLoadingOverlay
+        isOpen={submitMutation.isPending}
+        theme={theme}
+      />
+
       {/* 5. Anti-Cheat Tab Switching Warning / Auto-Submit Modal */}
-      {showWarningModal && (
+      {PROCTORING_ENABLED && showWarningModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-200 border border-orange-100">
             <div

@@ -4,9 +4,15 @@ import com.example.backend.auth.entity.User;
 import com.example.backend.common.entity.BaseEntity;
 import com.example.backend.common.enums.WorkspaceStatus;
 import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
 @Table(name = "workspaces")
+@Data
+@EqualsAndHashCode(callSuper = false)
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Workspace extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -21,47 +27,6 @@ public class Workspace extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
+    @Builder.Default
     private WorkspaceStatus status = WorkspaceStatus.ACTIVE;
-
-    public Workspace() {
-    }
-
-    public Workspace(User recruiter, String name, String description, WorkspaceStatus status) {
-        this.recruiter = recruiter;
-        this.name = name;
-        this.description = description;
-        this.status = status != null ? status : WorkspaceStatus.ACTIVE;
-    }
-
-    public User getRecruiter() {
-        return recruiter;
-    }
-
-    public void setRecruiter(User recruiter) {
-        this.recruiter = recruiter;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public WorkspaceStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(WorkspaceStatus status) {
-        this.status = status;
-    }
 }

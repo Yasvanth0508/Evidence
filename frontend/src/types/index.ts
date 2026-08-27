@@ -194,6 +194,7 @@ export interface CandidateReportData {
     totalTimeTakenMinutes: number;
   };
   bugBreakdown: BugBreakdownItem[];
+  testCases?: TestCaseAuditItem[];
   aiSummary: string;
   strengths: string[];
   improvements: string[];

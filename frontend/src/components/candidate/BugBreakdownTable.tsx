@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BugBreakdownItem } from "@/types";
+import { BugBreakdownItem, TestCaseAuditItem } from "@/types";
 import {
   Table,
   TableBody,
@@ -19,21 +19,6 @@ import {
   ChevronUp,
   Clock,
 } from "lucide-react";
-
-export interface TestCaseAuditItem {
-  id: string;
-  testCaseNumber: number;
-  testType: string;
-  httpMethod: string;
-  endpoint: string;
-  expectedStatusCode: number;
-  actualStatusCode: number;
-  executionTimeMs: number;
-  expectedResponse?: string;
-  actualResponse?: string;
-  assertions?: string;
-  passed?: boolean;
-}
 
 interface BugBreakdownTableProps {
   bugs: BugBreakdownItem[];
@@ -193,60 +178,98 @@ export const BugBreakdownTable = ({ bugs, testCases }: BugBreakdownTableProps) =
               ) : (
                 testCases.map((tc) => {
                   const isExpanded = expandedTestId === tc.id;
-                  const isPassed = tc.passed !== false;
+                  const isPassed = tc.status === "PASSED" || (tc as any).passed === true;
                   return (
-                    <tr key={tc.id} className="border-b border-gray-100 hover:bg-gray-50/70">
-                      <TableCell className="font-mono text-xs font-bold text-gray-500">
-                        TC-{tc.testCaseNumber}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 border border-gray-200">
-                          {tc.testType}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5 font-mono text-xs text-gray-900 font-semibold">
-                          <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px]">
-                            {tc.httpMethod}
+                    <>
+                      <tr key={tc.id} className="border-b border-gray-100 hover:bg-gray-50/70">
+                        <TableCell className="font-mono text-xs font-bold text-gray-500">
+                          TC-{tc.testCaseNumber}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 border border-gray-200">
+                            {tc.testType}
                           </span>
-                          <span>{tc.endpoint}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        <span className="text-gray-600">Exp: <strong>{tc.expectedStatusCode}</strong></span>
-                        <span className="text-gray-400 mx-1">|</span>
-                        <span className={isPassed ? "text-emerald-700" : "text-rose-700"}>
-                          Act: <strong>{tc.actualStatusCode}</strong>
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-xs text-gray-500 font-mono">
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-gray-400" />
-                          {tc.executionTimeMs}ms
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {isPassed ? (
-                          <Badge variant="fixed" className="gap-1 text-[11px]">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            <span>PASSED</span>
-                          </Badge>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                            <XCircle className="w-3 h-3 text-rose-600" />
-                            <span>FAILED</span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5 font-mono text-xs text-gray-900 font-semibold">
+                            <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px]">
+                              {tc.httpMethod}
+                            </span>
+                            <span>{tc.endpoint}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          <span className="text-gray-600">Exp: <strong>{tc.expectedStatusCode}</strong></span>
+                          <span className="text-gray-400 mx-1">|</span>
+                          <span className={isPassed ? "text-emerald-700" : "text-rose-700"}>
+                            Act: <strong>{tc.actualStatusCode ?? "ERR"}</strong>
                           </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <button
-                          onClick={() => setExpandedTestId(isExpanded ? null : tc.id)}
-                          className="p-1 rounded-md hover:bg-gray-100 text-gray-500"
-                        >
-                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
-                      </TableCell>
-                    </tr>
+                        </TableCell>
+                        <TableCell className="text-xs text-gray-500 font-mono">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-gray-400" />
+                            {tc.executionTimeMs}ms
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {isPassed ? (
+                            <Badge variant="fixed" className="gap-1 text-[11px]">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>PASSED</span>
+                            </Badge>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                              <XCircle className="w-3 h-3 text-rose-600" />
+                              <span>FAILED</span>
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <button
+                            onClick={() => setExpandedTestId(isExpanded ? null : tc.id)}
+                            className="p-1 rounded-md hover:bg-gray-100 text-gray-500 transition-colors"
+                            title={isExpanded ? "Collapse Details" : "View Test Audit Details"}
+                          >
+                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                        </TableCell>
+                      </tr>
+
+                      {/* Expanded Details Panel */}
+                      {isExpanded && (
+                        <tr key={`${tc.id}-details`} className="bg-slate-900 text-slate-100 border-b border-slate-800">
+                          <TableCell colSpan={7} className="p-4 space-y-3 font-mono text-xs">
+                            {tc.failureReason && (
+                              <div className="p-2.5 rounded-lg bg-rose-950/70 border border-rose-800/80 text-rose-300">
+                                <span className="font-bold text-rose-400 block uppercase text-[10px] tracking-wider mb-1">
+                                  Failure Reason
+                                </span>
+                                <div>{tc.failureReason}</div>
+                              </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {tc.expectedResponse && (
+                                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 overflow-x-auto space-y-1">
+                                  <span className="text-indigo-400 font-bold uppercase text-[10px] block">
+                                    Expected Response Contract
+                                  </span>
+                                  <pre className="text-slate-300 text-[11px] whitespace-pre-wrap">{tc.expectedResponse}</pre>
+                                </div>
+                              )}
+                              {tc.actualResponse && (
+                                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 overflow-x-auto space-y-1">
+                                  <span className={isPassed ? "text-emerald-400 font-bold uppercase text-[10px] block" : "text-rose-400 font-bold uppercase text-[10px] block"}>
+                                    Actual Response Received
+                                  </span>
+                                  <pre className="text-slate-300 text-[11px] whitespace-pre-wrap">{tc.actualResponse}</pre>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                        </tr>
+                      )}
+                    </>
                   );
                 })
               )}

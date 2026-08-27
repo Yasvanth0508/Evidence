@@ -1,5 +1,6 @@
 package com.example.backend.common.enums;
 
 public enum WorkspaceStatus {
-    ACTIVE
+    ACTIVE,
+    ARCHIVED
 }

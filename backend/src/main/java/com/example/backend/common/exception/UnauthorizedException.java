@@ -1,6 +1,7 @@
 package com.example.backend.common.exception;
 
 public class UnauthorizedException extends RuntimeException {
+
     private final String errorCode;
 
     public UnauthorizedException(String message) {

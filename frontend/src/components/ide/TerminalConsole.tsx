@@ -114,22 +114,42 @@ export const TerminalConsole = ({
             </div>
           ) : (
             logs.map((line, idx) => {
+              const isStep = line.includes(">>> [") || line.includes("Step ");
               const isError =
+                line.includes("[ERROR]") ||
                 line.includes("Error:") ||
                 line.includes("Exception") ||
                 line.includes("Build failed") ||
-                line.includes("FAILURE");
+                line.includes("FAILURE") ||
+                line.includes("COMPILATION ERROR") ||
+                line.startsWith("✗");
               const isSuccess =
                 line.includes("BUILD SUCCESS") ||
                 line.includes("Started Application") ||
-                line.includes("Tomcat started");
+                line.includes("Tomcat started") ||
+                line.startsWith("✔");
+              const isWarning =
+                line.includes("[WARNING]") ||
+                line.includes("WARN") ||
+                line.includes("[INTEGRITY_WARNING]");
+              const isInfo = line.includes("[INFO]");
 
               return (
                 <div
                   key={idx}
                   className={cn(
-                    "font-mono whitespace-pre-wrap",
-                    isError ? "text-rose-400 font-semibold" : isSuccess ? "text-emerald-400" : "text-gray-300"
+                    "font-mono whitespace-pre-wrap leading-5",
+                    isStep
+                      ? "text-purple-400 font-bold"
+                      : isError
+                      ? "text-rose-400 font-semibold"
+                      : isSuccess
+                      ? "text-emerald-400 font-semibold"
+                      : isWarning
+                      ? "text-amber-400"
+                      : isInfo
+                      ? "text-sky-300"
+                      : "text-gray-300"
                   )}
                 >
                   {line}

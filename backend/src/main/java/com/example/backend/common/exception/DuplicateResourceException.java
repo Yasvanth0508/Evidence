@@ -1,6 +1,7 @@
 package com.example.backend.common.exception;
 
 public class DuplicateResourceException extends RuntimeException {
+
     private final String errorCode;
 
     public DuplicateResourceException(String message) {

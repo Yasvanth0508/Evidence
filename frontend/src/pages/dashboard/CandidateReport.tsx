@@ -22,7 +22,7 @@ import { AstAnalysisDrawer } from "@/components/dashboard/AstAnalysisDrawer";
 
 export const CandidateReport = () => {
   const { id = "asmt-001" } = useParams<{ id: string }>();
-  const { data, isLoading, error } = useCandidateReport(id);
+  const { data, isLoading, error, refetch } = useCandidateReport(id);
   const [isAstDrawerOpen, setIsAstDrawerOpen] = useState(false);
 
   if (isLoading) {
@@ -38,8 +38,36 @@ export const CandidateReport = () => {
 
   if (error || !data) {
     return (
-      <div className="p-8 text-center bg-white rounded-2xl border border-rose-200 text-rose-700 text-sm">
-        Failed to load candidate report. Please try again.
+      <div className="p-12 text-center bg-white rounded-3xl border border-gray-200/90 shadow-sm max-w-lg mx-auto my-12 space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+          <Bug className="w-6 h-6" />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-base font-bold text-gray-900">
+            Assessment Report Not Available Yet
+          </h3>
+          <p className="text-xs text-gray-500 leading-relaxed max-w-xs mx-auto">
+            The assessment evaluation may still be processing or the report has not been generated yet.
+          </p>
+        </div>
+        <div className="pt-2 flex items-center justify-center gap-3">
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs font-semibold"
+            onClick={() => refetch()}
+          >
+            Retry Loading
+          </Button>
+          <Link to="/dashboard">
+            <Button
+              size="sm"
+              className="text-xs font-semibold bg-[#F05323] hover:bg-[#d94417] text-white"
+            >
+              Back to Dashboard
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -191,7 +219,7 @@ export const CandidateReport = () => {
       </div>
 
       {/* 4. Bug Breakdown Table */}
-      <BugBreakdownTable bugs={data.bugBreakdown} />
+      <BugBreakdownTable bugs={data.bugBreakdown} testCases={data.testCases} />
 
       {/* 5. AI-Generated Summary */}
       <AiSummaryCard summary={data.aiSummary} />

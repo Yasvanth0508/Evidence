@@ -1,11 +1,18 @@
 package com.example.backend.auth.entity;
 
 import com.example.backend.common.entity.BaseEntity;
+import com.example.backend.common.enums.AuthProvider;
 import com.example.backend.common.enums.Role;
 import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
 @Table(name = "users")
+@Data
+@EqualsAndHashCode(callSuper = false)
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class User extends BaseEntity {
 
     @Column(name = "name", nullable = false, length = 150)
@@ -14,52 +21,32 @@ public class User extends BaseEntity {
     @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
 
-    @Column(name = "password", nullable = false, length = 255)
-    private String password;
+    @Column(name = "password_hash", nullable = false, length = 255)
+    private String passwordHash;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 50)
     private Role role;
 
-    public User() {
-    }
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false, length = 50)
+    @Builder.Default
+    private AuthProvider authProvider = AuthProvider.LOCAL;
 
-    public User(String name, String email, String password, Role role) {
+    public User(String name, String email, String passwordHash, Role role) {
         this.name = name;
         this.email = email;
-        this.password = password;
+        this.passwordHash = passwordHash;
         this.role = role;
+        this.authProvider = AuthProvider.LOCAL;
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
+    // Convenience method for security / legacy callers
     public String getPassword() {
-        return password;
+        return passwordHash;
     }
 
     public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
+        this.passwordHash = password;
     }
 }

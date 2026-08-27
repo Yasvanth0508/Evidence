@@ -10,6 +10,16 @@ dist/
 build/
 .mvn/wrapper/maven-wrapper.jar
 
+# Environment Variables & Secrets
+.env
+.env.*
+*.env
+*.env.local
+
+# Storage & Temporary Sandboxes
+storage/
+backend/storage/
+
 # IDE & OS
 .idea/
 *.iml

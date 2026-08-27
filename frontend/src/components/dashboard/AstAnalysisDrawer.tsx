@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { assessmentService } from "@/services/assessmentService";
+import { FormattedMarkdown, cleanRawString } from "@/components/common/FormattedMarkdown";
 
 interface AstAnalysisDrawerProps {
   isOpen: boolean;
@@ -65,45 +66,78 @@ export const AstAnalysisDrawer = ({
   const specEndpoint = rawSpec?.endpoint || (rawSpec?.requestSpecification?.endpoint) || "/api/v1/resource";
 
   // Robust array conversion for requirements
-  let specRequirements: string[] = [];
-  if (Array.isArray(rawSpec?.requirements)) {
-    specRequirements = rawSpec.requirements;
-  } else if (typeof rawSpec?.requirements === "string") {
-    try {
-      const parsed = JSON.parse(rawSpec.requirements);
-      specRequirements = Array.isArray(parsed) ? parsed : [rawSpec.requirements];
-    } catch {
-      specRequirements = [rawSpec.requirements];
+  const normalizeSpecList = (val: any): string[] => {
+    if (!val) return [];
+    if (Array.isArray(val)) {
+      const list: string[] = [];
+      val.forEach((item) => {
+        if (typeof item === "string") {
+          const cleaned = cleanRawString(item);
+          if (cleaned.includes("\n")) {
+            cleaned.split("\n").forEach((s) => {
+              const t = s.trim().replace(/^[-*•\d.]+\s*/, "");
+              if (t) list.push(t);
+            });
+          } else {
+            list.push(cleaned);
+          }
+        } else if (item && typeof item === "object") {
+          const itemStr = item.requirement || item.item || item.description || item.text || item.constraint || JSON.stringify(item);
+          list.push(cleanRawString(itemStr));
+        } else {
+          list.push(String(item));
+        }
+      });
+      return list.filter(Boolean);
     }
-  } else if (rawSpec?.requirements && typeof rawSpec.requirements === "object") {
-    specRequirements = Array.isArray(rawSpec.requirements.items) ? rawSpec.requirements.items : Object.values(rawSpec.requirements);
-  } else {
-    specRequirements = ["Implement the requested feature endpoint", "Ensure standard HTTP response status codes"];
-  }
-
-  // Robust array conversion for constraints
-  let specConstraints: string[] = [];
-  if (Array.isArray(rawSpec?.constraints)) {
-    specConstraints = rawSpec.constraints;
-  } else if (typeof rawSpec?.constraints === "string") {
-    try {
-      const parsed = JSON.parse(rawSpec.constraints);
-      specConstraints = Array.isArray(parsed) ? parsed : [rawSpec.constraints];
-    } catch {
-      specConstraints = [rawSpec.constraints];
+    if (typeof val === "object") {
+      if (Array.isArray(val.items)) return normalizeSpecList(val.items);
+      if (Array.isArray(val.requirements)) return normalizeSpecList(val.requirements);
+      if (Array.isArray(val.constraints)) return normalizeSpecList(val.constraints);
+      return Object.values(val).map((v) => cleanRawString(typeof v === "string" ? v : JSON.stringify(v))).filter(Boolean);
     }
-  } else if (rawSpec?.constraints && typeof rawSpec.constraints === "object") {
-    specConstraints = Array.isArray(rawSpec.constraints.items) ? rawSpec.constraints.items : Object.values(rawSpec.constraints);
-  } else {
-    specConstraints = ["Validate input payloads", "Follow Spring Boot best practices"];
-  }
+    if (typeof val === "string") {
+      const cleaned = cleanRawString(val);
+      try {
+        const parsed = JSON.parse(cleaned);
+        return normalizeSpecList(parsed);
+      } catch {
+        return cleaned
+          .split("\n")
+          .map((s) => s.trim().replace(/^[-*•\d.]+\s*/, ""))
+          .filter(Boolean);
+      }
+    }
+    return [cleanRawString(val)].filter(Boolean);
+  };
 
-  const specRequestStr = typeof rawSpec?.requestSpecification === "object"
-    ? JSON.stringify(rawSpec.requestSpecification, null, 2)
-    : (rawSpec?.requestSpecification || "GET /api/v1/resource");
-  const specResponseStr = typeof rawSpec?.responseSpecification === "object"
-    ? JSON.stringify(rawSpec.responseSpecification, null, 2)
-    : (rawSpec?.responseSpecification || "HTTP 200 OK with JSON response");
+  const specRequirements = normalizeSpecList(rawSpec?.requirements).length > 0
+    ? normalizeSpecList(rawSpec?.requirements)
+    : ["Implement the requested feature endpoint", "Ensure standard HTTP response status codes"];
+
+  const specConstraints = normalizeSpecList(rawSpec?.constraints).length > 0
+    ? normalizeSpecList(rawSpec?.constraints)
+    : ["Validate input payloads", "Follow Spring Boot best practices"];
+
+  const formatSpecObj = (val: any): string => {
+    if (!val) return "";
+    if (typeof val === "string") {
+      const cleaned = cleanRawString(val);
+      try {
+        const parsed = JSON.parse(cleaned);
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return cleaned;
+      }
+    }
+    if (typeof val === "object") {
+      return JSON.stringify(val, null, 2);
+    }
+    return String(val);
+  };
+
+  const specRequestStr = formatSpecObj(rawSpec?.requestSpecification);
+  const specResponseStr = formatSpecObj(rawSpec?.responseSpecification);
 
   // Normalized AST analysis
   let controllers: any[] = [];
@@ -274,9 +308,11 @@ export const AstAnalysisDrawer = ({
                 <h4 className="text-base font-extrabold text-gray-900">
                   {specTitle}
                 </h4>
-                <p className="text-xs text-gray-700 leading-relaxed">
-                  {specDescription}
-                </p>
+                <FormattedMarkdown
+                  content={specDescription}
+                  theme="light"
+                  className="text-xs text-gray-700 leading-relaxed"
+                />
               </div>
 
               {/* Endpoint Contract */}
@@ -291,15 +327,15 @@ export const AstAnalysisDrawer = ({
                   <span className="text-amber-300 font-bold">{specEndpoint}</span>
                 </div>
                 {specRequestStr && (
-                  <div className="text-gray-300 pt-2 text-[11px] bg-black/40 p-2.5 rounded-xl whitespace-pre-wrap">
-                    <strong className="text-emerald-400">Request Specification:</strong>
-                    {"\n"}{specRequestStr}
+                  <div className="text-gray-300 pt-2 text-[11px] bg-black/40 p-2.5 rounded-xl space-y-1">
+                    <strong className="text-emerald-400 block font-sans text-[10px] uppercase">Request Specification:</strong>
+                    <FormattedMarkdown content={specRequestStr} theme="dark" />
                   </div>
                 )}
                 {specResponseStr && (
-                  <div className="text-gray-300 pt-1 text-[11px] bg-black/40 p-2.5 rounded-xl whitespace-pre-wrap">
-                    <strong className="text-cyan-400">Expected Response Specification:</strong>
-                    {"\n"}{specResponseStr}
+                  <div className="text-gray-300 pt-1 text-[11px] bg-black/40 p-2.5 rounded-xl space-y-1">
+                    <strong className="text-cyan-400 block font-sans text-[10px] uppercase">Expected Response Specification:</strong>
+                    <FormattedMarkdown content={specResponseStr} theme="dark" />
                   </div>
                 )}
               </div>
@@ -312,9 +348,11 @@ export const AstAnalysisDrawer = ({
                   </h5>
                   <ul className="space-y-1.5">
                     {specRequirements.map((req: string, i: number) => (
-                      <li key={i} className="flex items-start gap-2 text-xs text-gray-700 bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
+                      <li key={i} className="flex items-start gap-2.5 text-xs text-gray-700 bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                        <span>{req}</span>
+                        <div className="flex-1">
+                          <FormattedMarkdown content={req} theme="light" />
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -329,9 +367,11 @@ export const AstAnalysisDrawer = ({
                   </h5>
                   <ul className="space-y-1.5">
                     {specConstraints.map((c: string, i: number) => (
-                      <li key={i} className="flex items-start gap-2 text-xs text-gray-600 bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
+                      <li key={i} className="flex items-start gap-2.5 text-xs text-gray-600 bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
                         <ChevronRight className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
-                        <span>{c}</span>
+                        <div className="flex-1">
+                          <FormattedMarkdown content={c} theme="light" />
+                        </div>
                       </li>
                     ))}
                   </ul>

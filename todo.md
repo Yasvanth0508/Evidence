@@ -1,740 +1,179 @@
-# Evidence Backend — Development TODO
+# Evidence Platform — Phased Implementation TODO
 
-> **Reference Docs:** [`Docs/`](file:///d:/Evidence_Development/Docs)  
+> **Reference Docs:** [`Docs/APIEndpointsAndDatabaseVerificationTest.md`](file:///d:/Evidence_Development/Docs/APIEndpointsAndDatabaseVerificationTest.md)  
 > **Backend Path:** [`backend/`](file:///d:/Evidence_Development/backend)  
-> **Stack:** Java 21, Spring Boot 4.1, Spring Data JPA, PostgreSQL  
-> **Base API URL:** `/api/v1`
-
-> [!NOTE]
-> AI Processing Pipeline is **not finalized**. Those endpoints are **dummy/stubs**.  
-> Build **one module at a time**, test its endpoints, then move to the next.
-
-> [!IMPORTANT]
-> **Auth is built LAST.** During development, Spring Security is configured to **permit all requests**.  
-> This lets you test every endpoint with plain curl/Postman — no tokens, no 401s.  
-> The `User` entity is created early (Module 0) since Workspace needs it for candidate lookup.
+> **Base API URL:** `/api/v1`  
+> **Target Database:** PostgreSQL (`evidence_db`)
 
 ---
 
-## Final Folder Structure (Feature-Based)
-
-```
-com.example.backend/
-│
-├── BackendApplication.java
-│
-├── common/                              ← Shared across all modules
-│   ├── entity/
-│   │   └── BaseEntity.java              ← @MappedSuperclass (id, createdAt, updatedAt)
-│   ├── dto/
-│   │   ├── ApiResponse.java             ← Generic success wrapper
-│   │   └── ApiErrorResponse.java        ← Error wrapper
-│   ├── exception/
-│   │   ├── ResourceNotFoundException.java
-│   │   ├── DuplicateResourceException.java
-│   │   ├── ValidationException.java
-│   │   ├── UnauthorizedException.java
-│   │   ├── ForbiddenException.java
-│   │   ├── AssessmentNotAvailableException.java
-│   │   ├── AssessmentAlreadySubmittedException.java
-│   │   ├── AiProcessingException.java
-│   │   ├── ExecutionUnavailableException.java
-│   │   └── GlobalExceptionHandler.java  ← @RestControllerAdvice
-│   └── enums/
-│       ├── Role.java
-│       ├── AssessmentStatus.java
-│       ├── Difficulty.java
-│       ├── WorkspaceStatus.java
-│       ├── BuildStatus.java
-│       ├── ContainerStatus.java
-│       ├── ApplicationStatus.java
-│       ├── TestResultStatus.java
-│       ├── SubmissionStatus.java
-│       └── AnalysisStatus.java
-│
-├── config/                              ← App-wide configuration
-│   ├── SecurityConfig.java              ← permitAll() during dev → locked down in Module 11
-│   ├── CorsConfig.java
-│   └── AppConfig.java                   ← BCryptPasswordEncoder bean, etc.
-│
-├── auth/                                ← Authentication module (BUILT LAST — Module 11)
-│   ├── entity/
-│   │   └── User.java                    ← Created early in Module 0 (other modules depend on it)
-│   ├── repository/
-│   │   └── UserRepository.java          ← Created early in Module 0
-│   ├── dto/
-│   │   ├── SignupRequest.java
-│   │   ├── LoginRequest.java
-│   │   └── AuthResponse.java
-│   ├── service/
-│   │   ├── AuthService.java
-│   │   └── CustomUserDetailsService.java
-│   ├── controller/
-│   │   ├── RecruiterAuthController.java
-│   │   └── CandidateAuthController.java
-│   └── util/
-│       └── AuthUtil.java                ← Get current user from SecurityContext
-│
-├── workspace/                           ← Workspace management module
-│   ├── entity/
-│   │   ├── Workspace.java
-│   │   └── WorkspaceCandidate.java
-│   ├── repository/
-│   │   ├── WorkspaceRepository.java
-│   │   └── WorkspaceCandidateRepository.java
-│   ├── dto/
-│   │   ├── CreateWorkspaceRequest.java
-│   │   ├── UpdateWorkspaceRequest.java
-│   │   ├── AddCandidateToWorkspaceRequest.java
-│   │   └── WorkspaceResponse.java
-│   ├── service/
-│   │   └── WorkspaceService.java
-│   └── controller/
-│       └── WorkspaceController.java
-│
-├── candidate/                           ← Candidate management module (recruiter-side)
-│   ├── dto/
-│   │   ├── CandidateResponse.java
-│   │   ├── CandidateWorkspaceDto.java
-│   │   └── CandidateAssessmentDto.java
-│   ├── service/
-│   │   └── CandidateService.java
-│   └── controller/
-│       └── CandidateController.java
-│
-├── assessment/                          ← Assessment CRUD & lifecycle module
-│   ├── entity/
-│   │   └── Assessment.java
-│   ├── repository/
-│   │   └── AssessmentRepository.java
-│   ├── dto/
-│   │   ├── CreateAssessmentRequest.java
-│   │   ├── AssessmentResponse.java
-│   │   ├── AssessmentListItemResponse.java
-│   │   ├── ProcessingStatusResponse.java
-│   │   └── ProcessingStageDto.java
-│   ├── service/
-│   │   └── AssessmentService.java
-│   └── controller/
-│       └── AssessmentController.java
-│
-├── analysis/                            ← Repository analysis module (DUMMY)
-│   ├── entity/
-│   │   ├── RepositoryAnalysis.java
-│   │   └── RepositoryRecord.java
-│   ├── repository/
-│   │   ├── RepositoryAnalysisRepository.java
-│   │   └── RepositoryRecordRepository.java
-│   ├── dto/
-│   │   └── RepositoryAnalysisResponse.java
-│   ├── service/
-│   │   └── RepositoryAnalysisService.java  ← DUMMY: returns mock data
-│   └── controller/
-│       └── RepositoryAnalysisController.java
-│
-├── feature/                             ← Feature specification module (DUMMY)
-│   ├── entity/
-│   │   └── FeatureSpecification.java
-│   ├── repository/
-│   │   └── FeatureSpecificationRepository.java
-│   ├── dto/
-│   │   └── FeatureSpecificationResponse.java
-│   ├── service/
-│   │   └── FeatureSpecificationService.java  ← DUMMY: returns mock data
-│   └── controller/
-│       └── FeatureController.java
-│
-├── fileexplorer/                        ← File explorer module (DUMMY)
-│   ├── dto/
-│   │   ├── FileTreeResponse.java
-│   │   ├── FileContentResponse.java
-│   │   └── SaveFileRequest.java
-│   ├── service/
-│   │   └── FileExplorerService.java     ← DUMMY: returns mock file tree/content
-│   └── controller/
-│       └── FileExplorerController.java
-│
-├── execution/                           ← Application execution module (DUMMY)
-│   ├── entity/
-│   │   └── Execution.java
-│   ├── repository/
-│   │   └── ExecutionRepository.java
-│   ├── dto/
-│   │   ├── ExecutionResponse.java
-│   │   ├── ExecutionStatusResponse.java
-│   │   └── ExecutionLogsResponse.java
-│   ├── service/
-│   │   └── ExecutionService.java        ← DUMMY: returns mock status/logs
-│   └── controller/
-│       └── ExecutionController.java
-│
-├── evaluation/                          ← Evaluation, submission & test results (DUMMY)
-│   ├── entity/
-│   │   ├── Submission.java
-│   │   ├── TestCase.java
-│   │   └── TestResult.java
-│   ├── repository/
-│   │   ├── SubmissionRepository.java
-│   │   ├── TestCaseRepository.java
-│   │   └── TestResultRepository.java
-│   ├── dto/
-│   │   ├── SubmissionResponse.java
-│   │   ├── CandidateResultResponse.java
-│   │   ├── AssessmentReportResponse.java
-│   │   └── TestResultResponse.java
-│   ├── service/
-│   │   └── EvaluationService.java       ← DUMMY: returns mock scores/results
-│   └── controller/
-│       └── EvaluationController.java
-│
-├── dashboard/                           ← Dashboard module (recruiter + candidate)
-│   ├── dto/
-│   │   ├── RecruiterDashboardResponse.java
-│   │   ├── CandidateDashboardResponse.java
-│   │   ├── ScheduledAssessmentDto.java
-│   │   └── CompletedAssessmentDto.java
-│   ├── service/
-│   │   ├── RecruiterDashboardService.java
-│   │   └── CandidateDashboardService.java
-│   └── controller/
-│       ├── RecruiterDashboardController.java
-│       └── CandidateDashboardController.java
-│
-├── report/                              ← Reports module
-│   ├── dto/
-│   │   ├── ReportListResponse.java
-│   │   └── ReportSummaryResponse.java
-│   ├── service/
-│   │   └── ReportService.java
-│   └── controller/
-│       └── ReportController.java
-│
-└── selectedcandidate/                   ← Selected candidates module
-    ├── dto/
-    │   ├── SelectedCandidateListResponse.java
-    │   └── SelectedCandidateDetailResponse.java
-    ├── service/
-    │   └── SelectedCandidateService.java
-    └── controller/
-        └── SelectedCandidateController.java
-```
+## 🚀 Active Pipeline: Take Assessment, Live Sandbox Execution & Automated Evaluation
 
 ---
 
-## Module-by-Module Implementation Plan
+### 📦 Phase A: Candidate Workspace Isolation & Real-Time File Explorer IDE
+> **Goal:** Allow the candidate to start an assessment, isolate a copy of the original repo into `candidate_workspace/`, browse directory tree, view file contents in Monaco Editor, and perform debounced autosave (2.5s) / file operations.
+
+- [x] **A.1 — Assessment Start & Workspace Isolation Service**
+  - Path: `com.example.backend.assessment.service.CandidateWorkspaceService.java`
+  - Logic:
+    - Validate schedule window (`scheduledStartAt <= now < scheduledEndAt`).
+    - Copy folder `storage/assessments/{id}/original` to `storage/assessments/{id}/candidate_workspace` (excluding `.git`, `target`, `.idea`, `node_modules`).
+    - Persist `candidate_workspace_path` into `ASSESSMENT_WORKSPACES` entity.
+    - Transition `ASSESSMENT.status` to `IN_PROGRESS`.
+  - Endpoint: `POST /api/v1/assessments/{assessmentId}/start`
+
+- [x] **A.2 — Hierarchical File Explorer Directory Tree API**
+  - Path: `com.example.backend.assessment.service.CandidateWorkspaceService.java` & DTOs
+  - Logic:
+    - Recursively scan `candidate_workspace/` and generate nested `FileNodeDto` JSON tree.
+    - Exclude binary and system files (`.class`, `.jar`, `.git`, `.idea`, `target`, `node_modules`).
+  - Endpoint: `GET /api/v1/assessments/{assessmentId}/files`
+
+- [x] **A.3 — File Content Read & Path Sanitization**
+  - Logic:
+    - Sanitize `path` parameter against directory traversal (`../` protection).
+    - Read file string with character encoding and auto-detect language (`java`, `xml`, `properties`, `json`, `yaml`).
+  - Endpoint: `GET /api/v1/assessments/{assessmentId}/files/content?path={filePath}`
+
+- [x] **A.4 — Debounced Autosave (2500ms) & File Update API**
+  - Logic:
+    - Accept modified file content from frontend Monaco Editor.
+    - Write directly to candidate workspace file on disk.
+    - Maintain atomicity and return updated timestamp.
+  - Endpoint: `PUT /api/v1/assessments/{assessmentId}/files/content`
+
+- [x] **A.5 — Workspace File Management (Create, Delete, Rename)**
+  - Logic:
+    - Create new file or folder (`POST /api/v1/assessments/{assessmentId}/files`).
+    - Delete file or folder (`DELETE /api/v1/assessments/{assessmentId}/files?path=...`).
+    - Rename or move file (`POST /api/v1/assessments/{assessmentId}/files/rename`).
 
 ---
 
-### Module 0: Common Foundation
+### ⚡ Phase B: Interactive Sandbox Compilation, Docker Run & Terminal Log Streaming
+> **Goal:** Allow the candidate to click "Run" in the frontend, compile their updated code, launch a test container on a dynamic port, and stream live stdout/stderr logs.
 
-> Shared pieces every module depends on — enums, base entity, User entity, response wrappers, exceptions, and a **wide-open** security config for dev.
+- [x] **B.1 — Sandbox Execution Engine & Compilation Validation**
+  - Path: `com.example.backend.assessment.service.CandidateExecutionService.java`
+  - Logic:
+    - Scan modified Java files and verify compilation with Maven or JDK compiler.
+    - If compilation fails, return parsed compiler errors (file, line number, message) to the UI immediately.
+    - Package updated `.jar` into `target/app.jar`.
+  - Endpoint: `POST /api/v1/assessments/{assessmentId}/run`
 
-- [x] **0.1 — Maven Dependencies**
-  - Add to [`pom.xml`](file:///d:/Evidence_Development/backend/pom.xml):
-    - `spring-boot-starter-security`
-    - `spring-boot-starter-validation`
-    - `lombok`
-    - JWT library (`io.jsonwebtoken:jjwt-api`, `jjwt-impl`, `jjwt-jackson`) — added now, wired in Module 11
-  - Existing: `spring-boot-starter-webmvc`, `spring-boot-starter-data-jpa`, `postgresql` ✅
+- [x] **B.2 — Ephemeral Docker Container Lifecycle & Port Binding**
+  - Logic:
+    - If a previous container exists for this candidate assessment, gracefully stop and remove it.
+    - Build Docker image: `candidate-assessment-{id}:run`.
+    - Run container detached on a non-conflicting dynamic port (e.g. `18080-19080`).
+    - Check container uptime status (`STARTING`, `RUNNING`, `FAILED`).
+  - Endpoint: `GET /api/v1/assessments/{assessmentId}/execution/status`
 
-- [x] **0.2 — `application.properties`**
-  - Add `server.port=8080`
-  - Existing PostgreSQL config ✅
+- [x] **B.3 — Live Terminal & Output Log Streaming**
+  - Path: `com.example.backend.assessment.service.ProcessLogBuffer.java`
+  - Logic:
+    - Buffer `docker logs --tail 200` output.
+    - Return plain formatted terminal text for Xterm.js / frontend terminal console.
+  - Endpoint: `GET /api/v1/assessments/{assessmentId}/execution/logs`
 
-- [x] **0.3 — Enums** — Create all 10 enum classes in `common/enums/`
-
-  | Enum | Values |
-  |:---|:---|
-  | `Role` | `RECRUITER`, `CANDIDATE` |
-  | `AssessmentStatus` | `CREATING`, `ANALYZING`, `GENERATING_FEATURE`, `GENERATING_TESTS`, `READY`, `SCHEDULED`, `IN_PROGRESS`, `EVALUATING`, `COMPLETED`, `CANCELLED`, `FAILED`, `EXPIRED` |
-  | `Difficulty` | `EASY`, `INTERMEDIATE`, `DIFFICULT` |
-  | `WorkspaceStatus` | `ACTIVE` |
-  | `BuildStatus` | `SUCCESS`, `FAILED` |
-  | `ContainerStatus` | `RUNNING`, `STOPPED` |
-  | `ApplicationStatus` | `STARTED`, `FAILED` |
-  | `TestResultStatus` | `PASSED`, `FAILED` |
-  | `SubmissionStatus` | `EVALUATING`, `COMPLETED`, `FAILED` |
-  | `AnalysisStatus` | `PENDING`, `RUNNING`, `COMPLETED`, `FAILED` |
-
-- [x] **0.4 — `BaseEntity`** — `common/entity/BaseEntity.java`
-  - `@MappedSuperclass`
-  - Fields: `id` (UUID, `@GeneratedValue`), `createdAt` (TIMESTAMP), `updatedAt` (TIMESTAMP)
-  - `@PrePersist` sets both; `@PreUpdate` sets `updatedAt`
-
-- [x] **0.5 — `User` entity** — `auth/entity/User.java` *(created early — other modules need it)*
-  - Extends `BaseEntity`
-  - Fields: `name` (VARCHAR 150), `email` (VARCHAR 255, UNIQUE), `password` (VARCHAR 255), `role` (Role enum)
-
-- [x] **0.6 — `UserRepository`** — `auth/repository/UserRepository.java` *(created early)*
-  - `findByEmail(String email)` → `Optional<User>`
-  - `findByEmailAndRole(String email, Role role)` → `Optional<User>`
-  - `existsByEmail(String email)` → `boolean`
-
-- [x] **0.7 — Response Wrappers** — `common/dto/`
-  - `ApiResponse<T>`: `success`, `message`, `data`, `timestamp`
-  - `ApiErrorResponse`: `success` (false), `message`, `errorCode`, `timestamp`
-
-- [x] **0.8 — Custom Exceptions** — `common/exception/`
-  - `ResourceNotFoundException` (404), `DuplicateResourceException` (409), `ValidationException` (400), `UnauthorizedException` (401), `ForbiddenException` (403), `AssessmentNotAvailableException` (409), `AssessmentAlreadySubmittedException` (409), `AiProcessingException` (502), `ExecutionUnavailableException` (503)
-
-- [x] **0.9 — `GlobalExceptionHandler`** — `common/exception/GlobalExceptionHandler.java`
-  - `@RestControllerAdvice`
-  - Map each exception → `ApiErrorResponse` with HTTP status + `errorCode`
-  - `MethodArgumentNotValidException` → 400 `VALIDATION_ERROR`
-  - Generic `Exception` → 500 `INTERNAL_ERROR`
-
-- [x] **0.10 — `AppConfig`** — `config/AppConfig.java`
-  - `@Bean BCryptPasswordEncoder passwordEncoder()`
-
-- [x] **0.11 — `CorsConfig`** — `config/CorsConfig.java`
-  - Allow origins: `http://localhost`, `http://localhost:5173`
-  - Allow methods: `GET`, `POST`, `PUT`, `DELETE`, `OPTIONS`
-  - Allow credentials: `true`
-
-- [x] **0.12 — `SecurityConfig` (DEV MODE — PERMIT ALL)** — `config/SecurityConfig.java`
-  ```java
-  @Configuration
-  public class SecurityConfig {
-      @Bean
-      public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-          http
-              .csrf(csrf -> csrf.disable())
-              .cors(Customizer.withDefaults())
-              .authorizeHttpRequests(auth -> auth
-                  .anyRequest().permitAll()  // ← wide open during dev
-              );
-          return http.build();
-      }
-  }
-  ```
-
-#### ✅ Checkpoint: `mvn clean compile` passes, app starts, no endpoints yet
+- [x] **B.4 — Stop Application Container**
+  - Logic:
+    - Terminate container process and release port resources.
+  - Endpoint: `POST /api/v1/assessments/{assessmentId}/stop`
 
 ---
 
-### Module 1: Workspace
+### 🧪 Phase C: Final Submission & Automated Black-Box Evaluation Engine
+> **Goal:** When the candidate clicks "Submit", lock the workspace, launch the evaluation container, sequentially execute all stored test cases, match assertions, calculate weighted score, and persist test results and evaluation reports.
 
-> Workspace CRUD + adding/removing candidates to workspaces.
+- [x] **C.1 — Assessment Submission & State Locking**
+  - Path: `com.example.backend.assessment.service.CandidateEvaluationService.java`
+  - Logic:
+    - Verify assessment is `IN_PROGRESS` and within schedule.
+    - Transition `ASSESSMENT.status` to `EVALUATING`.
+    - Create and persist `SUBMISSION` entity (`status=SUBMITTED`, `timeTakenSeconds = now - startedAt`).
+  - Endpoint: `POST /api/v1/assessments/{assessmentId}/submit`
 
-- [x] **1.1 — `Workspace` entity** — `workspace/entity/Workspace.java`
-  - Extends `BaseEntity`
-  - Fields: `name` (VARCHAR 200), `description` (TEXT, nullable), `status` (WorkspaceStatus, default `ACTIVE`)
-  - `@ManyToOne` → `User` (recruiter via `recruiter_id`)
+- [x] **C.2 — Automated Black-Box Test Runner Service**
+  - Path: `com.example.backend.assessment.service.BlackBoxTestRunnerService.java`
+  - Logic:
+    - Spin up candidate Docker container on evaluation port.
+    - Fetch all `TEST_CASE` records for this assessment from PostgreSQL ordered by `test_case_number`.
+    - Loop through test cases and execute sequential HTTP requests (`GET`, `POST`, `PUT`, `DELETE`).
+    - Capture response status code, response body, and latency (`execution_time_ms`).
 
-- [x] **1.2 — `WorkspaceCandidate` entity** — `workspace/entity/WorkspaceCandidate.java`
-  - Extends `BaseEntity`
-  - `@ManyToOne` → `Workspace`, `@ManyToOne` → `User` (candidate)
-  - `@UniqueConstraint(workspace_id, candidate_id)`
+- [x] **C.3 — Response Assertion Matcher & Test Result Persistence**
+  - Path: `com.example.backend.assessment.service.ResponseAssertionMatcher.java`
+  - Logic:
+    - Validate `actualStatusCode == expectedStatusCode`.
+    - Compare JSON response schema / expected fields using Jackson.
+    - Record individual `TEST_RESULT` rows (`test_case_id`, `status: PASSED/FAILED`, `actual_status_code`, `actual_response`, `execution_time_ms`, `failure_reason`).
 
-- [x] **1.3 — Repositories** — `workspace/repository/`
-  - `WorkspaceRepository`:
-    - `findAllByRecruiterId(UUID)` → `List<Workspace>`
-    - `findByIdAndRecruiterId(UUID id, UUID recruiterId)` → `Optional<Workspace>`
-  - `WorkspaceCandidateRepository`:
-    - `findAllByWorkspaceId(UUID)` → `List<WorkspaceCandidate>`
-    - `findByWorkspaceIdAndCandidateId(UUID, UUID)` → `Optional<WorkspaceCandidate>`
-    - `existsByWorkspaceIdAndCandidateId(UUID, UUID)` → `boolean`
-    - `findAllByCandidateId(UUID)` → `List<WorkspaceCandidate>`
+- [x] **C.4 — Scoring Engine & Evaluation Report Generation**
+  - Logic:
+    - Calculate: $\text{Weighted Score} = \left(\frac{\sum \text{weight of passed tests}}{\sum \text{total test weights}}\right) \times 100$.
+    - Persist `EVALUATION_REPORT` entity (`submission_id`, `score`, `total_tests`, `passed_tests`, `failed_tests`, `build_status`, `application_status`, `time_taken_seconds`, `status=COMPLETED`, `evaluated_at=now`).
+    - Transition `ASSESSMENT.status` to `COMPLETED`.
+    - Clean up evaluation Docker container.
 
-- [x] **1.4 — DTOs** — `workspace/dto/`
-  - `CreateWorkspaceRequest`: `name` (`@NotBlank`), `description`
-  - `UpdateWorkspaceRequest`: `name`, `description`
-  - `AddCandidateToWorkspaceRequest`: `email` (`@NotBlank`)
-  - `WorkspaceResponse`: `id`, `name`, `description`, `status`
-
-- [x] **1.5 — `WorkspaceService`** — `workspace/service/WorkspaceService.java`
-  - `createWorkspace(UUID recruiterId, CreateWorkspaceRequest)`
-  - `getWorkspaces(UUID recruiterId)` → `List<WorkspaceResponse>`
-  - `getWorkspaceById(UUID recruiterId, UUID workspaceId)` → verify ownership
-  - `updateWorkspace(UUID recruiterId, UUID workspaceId, UpdateWorkspaceRequest)`
-  - `deleteWorkspace(UUID recruiterId, UUID workspaceId)`
-  - `getCandidatesInWorkspace(UUID recruiterId, UUID workspaceId)`
-  - `addCandidateToWorkspace(UUID recruiterId, UUID workspaceId, String email)` → find by email via `UserRepository`, check not duplicate, create `WorkspaceCandidate`
-  - `removeCandidateFromWorkspace(UUID recruiterId, UUID workspaceId, UUID candidateId)`
-
-> [!NOTE]
-> **No auth yet** — the controller will accept `recruiterId` as a path param or hardcode a test UUID for now.  
-> In Module 11, you'll replace this with `AuthUtil.getCurrentUserId()`.
-
-- [x] **1.6 — `WorkspaceController`** — `workspace/controller/WorkspaceController.java`
-  - `POST   /api/v1/workspaces` → create → 201
-  - `GET    /api/v1/workspaces` → list → 200
-  - `GET    /api/v1/workspaces/{workspaceId}` → get → 200
-  - `PUT    /api/v1/workspaces/{workspaceId}` → update → 200
-  - `DELETE /api/v1/workspaces/{workspaceId}` → delete → 200
-  - `GET    /api/v1/workspaces/{workspaceId}/candidates` → list candidates → 200
-  - `POST   /api/v1/workspaces/{workspaceId}/candidates` → add candidate → 201
-  - `DELETE /api/v1/workspaces/{workspaceId}/candidates/{candidateId}` → remove → 200
-
-#### ✅ Checkpoint: Test with curl (no auth needed!)
-```
-# Insert a test recruiter user directly in DB or via a temp endpoint
-POST   /workspaces                              → 201 workspace created
-GET    /workspaces                              → 200 list
-PUT    /workspaces/{id}                         → 200 updated
-POST   /workspaces/{id}/candidates (email)      → 201 candidate added
-GET    /workspaces/{id}/candidates              → 200 candidate list
-DELETE /workspaces/{id}/candidates/{candidateId} → 200 removed
-DELETE /workspaces/{id}                         → 200 deleted
-```
+- [x] **C.5 — Safe Candidate Result View**
+  - Logic:
+    - Return score, total/passed/failed test counts, duration (without leaking hidden assertions or test payloads).
+  - Endpoint: `GET /api/v1/assessments/{assessmentId}/result`
 
 ---
 
-### Module 2: Candidate Management (Recruiter-Side)
+### 📊 Phase D: Recruiter Evaluation Reports & Audit Breakdown
+> **Goal:** Provide recruiters with detailed audit reports, paginated submission views, and granular test result breakdowns.
 
-> Recruiter searches candidates by email, views their workspaces and assessments.
+- [x] **D.1 — Paginated Workspace Reports API**
+  - Endpoint: `GET /api/v1/reports?workspaceId={id}&status=COMPLETED&page=0&size=20`
 
-- [x] **2.1 — DTOs** — `candidate/dto/`
-  - `CandidateResponse`: `id`, `name`, `email`, `role`
-  - `CandidateWorkspaceDto`: `workspaceId`, `workspaceName`
-  - `CandidateAssessmentDto`: `assessmentId`, `difficulty`, `scheduledStartAt`, `scheduledEndAt`, `status`, `score`
+- [x] **D.2 — Recruiter Detailed Assessment Report API**
+  - Endpoint: `GET /api/v1/assessments/{assessmentId}/report`
 
-- [x] **2.2 — `CandidateService`** — `candidate/service/CandidateService.java`
-  - `searchByEmail(String email)` → find candidate user by email, 404 if not found
-  - `getCandidateById(UUID candidateId)` → return `CandidateResponse`
-  - `getCandidateWorkspaces(UUID candidateId)` → via `WorkspaceCandidateRepository`
-  - `getCandidateAssessments(UUID candidateId)` → via `AssessmentRepository` (empty until Module 3)
-
-- [x] **2.3 — `CandidateController`** — `candidate/controller/CandidateController.java`
-  - `GET /api/v1/candidates/search?email={email}` → 200 / 404
-  - `GET /api/v1/candidates/{candidateId}` → 200
-  - `GET /api/v1/candidates/{candidateId}/workspaces` → 200
-  - `GET /api/v1/candidates/{candidateId}/assessments` → 200
-
-#### ✅ Checkpoint: Test with curl
-```
-GET /candidates/search?email=test@example.com → 200 found / 404 not found
-GET /candidates/{id}                          → 200 details
-GET /candidates/{id}/workspaces               → 200 list
-```
+- [x] **D.3 — Recruiter Granular Test Results Breakdown API**
+  - Endpoint: `GET /api/v1/assessments/{assessmentId}/test-results`
 
 ---
 
-### Module 3: Assessment
+### 🛡️ Phase E: End-to-End Integration Tests & PostgreSQL Verification
+> **Goal:** Ensure 100% automated test coverage across all new endpoints and database transactions.
 
-> Assessment creation, listing, update, cancel, start, submit, processing status.
-
-- [x] **3.1 — `Assessment` entity** — `assessment/entity/Assessment.java`
-  - Extends `BaseEntity`
-  - Fields: `repositoryUrl`, `branchName`, `backendRootDirectory`, `difficulty` (Difficulty), `durationMinutes` (INTEGER), `scheduledStartAt`, `scheduledEndAt`, `status` (AssessmentStatus, default `CREATING`), `score` (DECIMAL 5,2, nullable)
-  - `@ManyToOne` → `Workspace` (workspace_id), `@ManyToOne` → `User` (candidate_id)
-  - **No `exam_id`**
-
-- [x] **3.2 — `AssessmentRepository`** — `assessment/repository/AssessmentRepository.java`
-  - `findAllByWorkspaceId(UUID)` → `List<Assessment>`
-  - `findAllByCandidateId(UUID)` → `List<Assessment>`
-  - `findByIdAndCandidateId(UUID, UUID)` → `Optional<Assessment>`
-  - Count queries for dashboard use later
-
-- [x] **3.3 — DTOs** — `assessment/dto/`
-  - `CreateAssessmentRequest`: `candidateId`, `repositoryUrl`, `branchName`, `backendRootDirectory`, `difficulty`, `durationMinutes`, `scheduledStartAt`, `scheduledEndAt` — all validated
-  - `AssessmentResponse`: all fields + candidate name
-  - `AssessmentListItemResponse`: summary for list views
-  - `ProcessingStatusResponse`: `assessmentId`, `status`, `stages` list
-  - `ProcessingStageDto`: `name`, `status`
-
-- [x] **3.4 — `AssessmentService`** — `assessment/service/AssessmentService.java`
-  - `createAssessment(UUID recruiterId, UUID workspaceId, CreateAssessmentRequest)` → validate workspace ownership, validate candidate in workspace, save with `CREATING`
-  - `getAssessmentsByWorkspace(UUID recruiterId, UUID workspaceId)` → verify ownership
-  - `getAssessmentById(UUID userId, Role role, UUID assessmentId)` → role-based field filtering
-  - `updateAssessment(UUID recruiterId, UUID assessmentId, ...)` → only in certain statuses
-  - `cancelAssessment(UUID recruiterId, UUID assessmentId)` → set `CANCELLED`
-  - `getProcessingStatus(UUID recruiterId, UUID assessmentId)` → **🟡 DUMMY: hardcoded stages all COMPLETED**
-  - `startAssessment(UUID candidateId, UUID assessmentId)` → validate time window `[scheduledStartAt, scheduledEndAt)`, set `IN_PROGRESS`
-  - `submitAssessment(UUID candidateId, UUID assessmentId)` → validate not submitted, set `EVALUATING`
-
-- [x] **3.5 — `AssessmentController`** — `assessment/controller/AssessmentController.java`
-  - `POST /api/v1/workspaces/{workspaceId}/assessments` → create → 201
-  - `GET  /api/v1/workspaces/{workspaceId}/assessments` → list → 200
-  - `GET  /api/v1/assessments/{assessmentId}` → get → 200
-  - `PUT  /api/v1/assessments/{assessmentId}` → update → 200
-  - `POST /api/v1/assessments/{assessmentId}/cancel` → 200
-  - `GET  /api/v1/assessments/{assessmentId}/processing-status` → 🟡 dummy → 200
-  - `POST /api/v1/assessments/{assessmentId}/start` → 200
-  - `POST /api/v1/assessments/{assessmentId}/submit` → 200
-
-#### ✅ Checkpoint: Test with curl
-```
-POST /workspaces/{id}/assessments            → 201 created
-GET  /workspaces/{id}/assessments            → 200 list
-GET  /assessments/{id}                       → 200 details
-POST /assessments/{id}/cancel                → 200 cancelled
-GET  /assessments/{id}/processing-status     → 200 dummy stages
-POST /assessments/{id}/start                 → 200 IN_PROGRESS
-POST /assessments/{id}/submit                → 200 EVALUATING
-```
+- [x] **E.1 — Integration Test Suite Updates**
+  - File: `backend/src/test/java/com/example/backend/ApiEndpointsAndDatabaseVerificationTest.java`
+  - MockMvc integration tests for all 15 endpoints verified against PostgreSQL.
+- [x] **E.2 — Verification & Full Suite Pass**
+  - Ran `mvn test` — 13 tests passed, 0 failures, 0 errors (`BUILD SUCCESS`).
 
 ---
 
-### Module 4: Repository Analysis (DUMMY)
+## 🎨 Phase F: Frontend Complete Mock & UI Verification
+> **Goal:** Complete all missing frontend views and components with rich interactive mock data for manual review.
 
-> Stub endpoints returning mock analysis data.
-
-- [x] **4.1 — Entities** — `analysis/entity/`
-  - `RepositoryAnalysis`: extends `BaseEntity`, `@OneToOne` → Assessment (UNIQUE), `analysisStatus`, JSON fields
-  - `RepositoryRecord`: extends `BaseEntity`, `@OneToOne` → Assessment (UNIQUE), `originalRepositoryPath`, `candidateRepositoryPath`
-
-- [x] **4.2 — Repositories** — `analysis/repository/`
-  - `RepositoryAnalysisRepository`: `findByAssessmentId(UUID)`
-  - `RepositoryRecordRepository`: `findByAssessmentId(UUID)`
-
-- [x] **4.3 — DTO** — `analysis/dto/RepositoryAnalysisResponse.java`
-
-- [x] **4.4 — `RepositoryAnalysisService`** — 🟡 DUMMY: returns hardcoded mock data
-
-- [x] **4.5 — `RepositoryAnalysisController`**
-  - `GET /api/v1/assessments/{assessmentId}/repository-analysis` → 🟡 dummy → 200
-  - `GET /api/v1/assessments/{assessmentId}/repository-analysis/status` → 🟡 dummy → 200
-
-#### ✅ Checkpoint: Both return mock JSON
+- [x] **F.1 — Assessment Pipeline Processing Visualizer Modal**
+  - Path: `frontend/src/components/dashboard/AssessmentProcessingModal.tsx`
+  - 5-Phase pipeline timeline (`Cloning` $\rightarrow$ `Docker Validation` $\rightarrow$ `AST Architecture` $\rightarrow$ `Mistral AI Feature` $\rightarrow$ `Black-Box Test Cases`).
+- [x] **F.2 — Candidate Pre-Assessment Instructions & System Check Screen**
+  - Path: `frontend/src/components/candidate/PreAssessmentModal.tsx`
+  - Assessment guidelines, duration, 2.5s debounced autosave notice, and workspace entry trigger.
+- [x] **F.3 — Recruiter AST Codebase & AI Feature Spec Inspector**
+  - Path: `frontend/src/components/dashboard/AstAnalysisDrawer.tsx`
+  - AST architecture overview, endpoints list, and full AI Feature Specification contract.
+- [x] **F.4 — Granular Recruiter Test Case Audit Breakdown**
+  - Path: `frontend/src/components/candidate/BugBreakdownTable.tsx`
+  - Detailed test cases tab with HTTP method, endpoint, expected vs actual status code, latency, and assertions.
+- [x] **F.5 — Frontend TypeScript & Vite Build Verification**
+  - Ran `npm run build` — 1981 modules transformed with 0 errors (`Exit code 0`).
 
 ---
 
-### Module 5: Feature Specification (DUMMY)
+## 🔌 Phase G: Real API Integration (Upcoming)
+> **Goal:** Connect frontend services and React Query hooks to real backend `/api/v1` endpoints.
+- [ ] G.1 — Connect Auth & Session Headers (`X-Recruiter-Id`, `X-Candidate-Id`)
+- [ ] G.2 — Connect Recruiter Dashboard & Workspace Endpoints
+- [ ] G.3 — Connect Candidate Search & Assessment Creation with Real Pipeline
+- [ ] G.4 — Connect Monaco IDE (`/files`, `/files/content`, `/run`, `/logs`, `/stop`, `/submit`)
+- [ ] G.5 — Connect Candidate & Recruiter Evaluation Reports
 
-- [x] **5.1 — Entity** — `feature/entity/FeatureSpecification.java`
-  - Extends `BaseEntity`, `@OneToOne` → Assessment (UNIQUE)
-  - Fields: `title`, `description`, `requirements` (JSON), `endpoint`, `httpMethod`, `requestSpecification` (JSON), `responseSpecification` (JSON), `constraints` (JSON)
-
-- [x] **5.2 — Repository** — `feature/repository/FeatureSpecificationRepository.java`
-
-- [x] **5.3 — DTO** — `feature/dto/FeatureSpecificationResponse.java`
-
-- [x] **5.4 — `FeatureSpecificationService`** — 🟡 DUMMY: returns hardcoded mock feature
-
-- [x] **5.5 — `FeatureController`**
-  - `GET /api/v1/assessments/{assessmentId}/feature` → 🟡 dummy → 200
-
-#### ✅ Checkpoint: Returns mock feature JSON
-
----
-
-### Module 6: File Explorer (DUMMY)
-
-> No entities — just DTOs, stub service, and controller.
-
-- [x] **6.1 — DTOs** — `fileexplorer/dto/`
-  - `FileTreeResponse`, `FileContentResponse`, `SaveFileRequest`
-
-- [x] **6.2 — `FileExplorerService`** — 🟡 DUMMY: mock file tree, content, save
-
-- [x] **6.3 — `FileExplorerController`**
-  - `GET  /api/v1/assessments/{assessmentId}/files` → 🟡 dummy → 200
-  - `GET  /api/v1/assessments/{assessmentId}/files/content?path=` → 🟡 dummy → 200
-  - `PUT  /api/v1/assessments/{assessmentId}/files/content` → 🟡 dummy → 200
-
-#### ✅ Checkpoint: All 3 return mock responses
-
----
-
-### Module 7: Execution (DUMMY)
-
-- [x] **7.1 — Entity** — `execution/entity/Execution.java`
-  - Extends `BaseEntity`, `@ManyToOne` → Assessment, `@ManyToOne` → Submission (nullable)
-  - Fields: `containerId`, `buildStatus`, `containerStatus`, `applicationStatus`, `startedAt`, `stoppedAt`
-
-- [x] **7.2 — Repository** — `execution/repository/ExecutionRepository.java`
-
-- [x] **7.3 — DTOs** — `execution/dto/`
-
-- [x] **7.4 — `ExecutionService`** — 🟡 DUMMY: mock run/stop/status/logs
-
-- [x] **7.5 — `ExecutionController`**
-  - `POST /api/v1/assessments/{assessmentId}/run` → 🟡 dummy → 200
-  - `POST /api/v1/assessments/{assessmentId}/stop` → 🟡 dummy → 200
-  - `GET  /api/v1/assessments/{assessmentId}/execution/status` → 🟡 dummy → 200
-  - `GET  /api/v1/assessments/{assessmentId}/execution/logs` → 🟡 dummy → 200
-
-#### ✅ Checkpoint: All 4 return mock responses
-
----
-
-### Module 8: Evaluation & Results (DUMMY)
-
-- [x] **8.1 — Entities** — `evaluation/entity/`
-  - `Submission`: `@ManyToOne` → Assessment, `candidateRepositoryPath`, `submittedAt`, `status`
-  - `TestCase`: `@ManyToOne` → Assessment, `testCaseNumber`, `httpMethod`, `endpoint`, `requestData`, `expectedStatusCode`, `expectedResponse`, `assertions`. Unique: `(assessment_id, test_case_number)`
-  - `TestResult`: `@ManyToOne` → TestCase, `@ManyToOne` → Execution, `status`, `actualStatusCode`, `actualResponse`, `executionTimeMs`, `failureReason`
-
-- [x] **8.2 — Repositories** — `evaluation/repository/`
-  - `SubmissionRepository`, `TestCaseRepository`, `TestResultRepository`
-
-- [x] **8.3 — DTOs** — `evaluation/dto/`
-  - `SubmissionResponse`, `CandidateResultResponse`, `AssessmentReportResponse`, `TestResultResponse`
-
-- [x] **8.4 — `EvaluationService`** — 🟡 DUMMY: mock scores/results
-
-- [x] **8.5 — `EvaluationController`**
-  - `GET /api/v1/assessments/{assessmentId}/result` → candidate → 🟡 dummy → 200
-  - `GET /api/v1/assessments/{assessmentId}/report` → recruiter → 🟡 dummy → 200
-  - `GET /api/v1/assessments/{assessmentId}/test-results` → recruiter → 🟡 dummy → 200
-
-#### ✅ Checkpoint: All 3 return mock data
-
----
-
-### Module 9: Dashboard
-
-> Real data — aggregates from workspace, assessment, and candidate tables.
-
-- [x] **9.1 — DTOs** — `dashboard/dto/`
-  - `RecruiterDashboardResponse`: `workspaceCount`, `candidateCount`, `assessmentCount`, `activeAssessments`, `completedAssessments`
-  - `CandidateDashboardResponse`: `scheduledAssessments` list, `completedAssessments` list
-  - `ScheduledAssessmentDto`: `assessmentId`, `workspaceName`, `scheduledStartAt`, `scheduledEndAt`, `difficulty`, `status`
-  - `CompletedAssessmentDto`: `assessmentId`, `workspaceName`, `completedAt`, `score`, `status`
-
-- [x] **9.2 — `RecruiterDashboardService`** — count workspaces, candidates, assessments
-
-- [x] **9.3 — `CandidateDashboardService`** — partition assessments into scheduled vs completed
-
-- [x] **9.4 — Controllers** — `dashboard/controller/`
-  - `GET /api/v1/recruiter/dashboard` → 200
-  - `GET /api/v1/candidate/dashboard` → 200
-
-#### ✅ Checkpoint: Returns real aggregated counts from DB
-
----
-
-### Module 10: Reports & Selected Candidates
-
-> Real data — query assessments with filters, pagination, and candidate aggregation.
-
-- [x] **10.1 — Report DTOs** — `report/dto/`
-  - `ReportListResponse` (paginated), `ReportSummaryResponse`
-
-- [x] **10.2 — `ReportService`**
-  - `getReports(UUID recruiterId, filters, pagination)`
-  - `getReportById(UUID recruiterId, UUID reportId)`
-  - `getReportSummary(UUID recruiterId)`
-
-- [x] **10.3 — `ReportController`**
-  - `GET /api/v1/reports?workspaceId=&status=&page=&size=` → 200
-  - `GET /api/v1/reports/{reportId}` → 200
-  - `GET /api/v1/reports/summary` → 200
-
-- [x] **10.4 — Selected Candidate DTOs & Entity** — `selectedcandidate/`
-  - `SelectedCandidate` entity (`selected_candidates` table with unique `(workspace_id, candidate_id)`)
-  - `SelectedCandidateRepository`, `SelectCandidateRequest`, `SelectedCandidateItemDto`
-
-- [x] **10.5 — `SelectedCandidateService`**
-  - `selectCandidate(SelectCandidateRequest)`
-  - `getSelectedCandidates(UUID workspaceId)`
-  - `removeSelectedCandidate(UUID id)`
-
-- [x] **10.6 — `SelectedCandidateController`**
-  - `POST   /api/v1/selected-candidates` → 201
-  - `GET    /api/v1/selected-candidates?workspaceId=` → 200
-  - `DELETE /api/v1/selected-candidates/{id}` → 200
-
-#### ✅ Checkpoint: Reports and selected candidates return real DB data
-
----
-
-### Module 11: Authentication (FINAL MODULE)
-
-> Now lock everything down — JWT, login/signup, role-based access, and wire `AuthUtil` into all controllers.
-
-- [ ] **11.1 — Auth DTOs** — `auth/dto/`
-  - `SignupRequest`: `name`, `email`, `password` (all `@NotBlank`)
-  - `LoginRequest`: `email`, `password` (all `@NotBlank`)
-  - `AuthResponse`: `id`, `name`, `email`, `role`
-
-- [ ] **11.2 — `CustomUserDetailsService`** — `auth/service/CustomUserDetailsService.java`
-  - Implements `UserDetailsService`, loads by email from `UserRepository`
-
-- [ ] **11.3 — JWT Implementation** (or Spring Session — pick one)
-  - JWT token generation (sign with secret, include user ID + role)
-  - JWT token validation filter (`OncePerRequestFilter`)
-  - Extract user from token and set `SecurityContext`
-
-- [ ] **11.4 — `AuthUtil`** — `auth/util/AuthUtil.java`
-  - `getCurrentUser()` → get `User` from `SecurityContext`
-  - `getCurrentUserId()` → `UUID`
-  - `getCurrentUserRole()` → `Role`
-
-- [ ] **11.5 — `AuthService`** — `auth/service/AuthService.java`
-  - `recruiterSignup(SignupRequest)` → validate unique email, hash password, save `RECRUITER`, return `AuthResponse` + token
-  - `recruiterLogin(LoginRequest)` → authenticate, return `AuthResponse` + token
-  - `candidateSignup(SignupRequest)` → same for `CANDIDATE`
-  - `candidateLogin(LoginRequest)` → same
-  - `logout()` → invalidate/blacklist token
-  - `getCurrentUser()` → return profile of authenticated user
-
-- [ ] **11.6 — Auth Controllers** — `auth/controller/`
-  - `RecruiterAuthController`:
-    - `POST /api/v1/auth/recruiter/signup` → 201
-    - `POST /api/v1/auth/recruiter/login` → 200
-    - `POST /api/v1/auth/recruiter/logout` → 200
-    - `GET  /api/v1/auth/recruiter/me` → 200
-  - `CandidateAuthController`:
-    - `POST /api/v1/auth/candidate/signup` → 201
-    - `POST /api/v1/auth/candidate/login` → 200
-    - `POST /api/v1/auth/candidate/logout` → 200
-    - `GET  /api/v1/auth/candidate/me` → 200
-
-- [ ] **11.7 — Lock Down `SecurityConfig`** — Replace `permitAll()` with real rules:
-  ```java
-  .authorizeHttpRequests(auth -> auth
-      .requestMatchers("/api/v1/auth/**").permitAll()
-      .requestMatchers("/api/v1/recruiter/**").hasRole("RECRUITER")
-      .requestMatchers("/api/v1/workspaces/**").hasRole("RECRUITER")
-      .requestMatchers("/api/v1/candidates/**").hasRole("RECRUITER")
-      .requestMatchers("/api/v1/reports/**").hasRole("RECRUITER")
-      .requestMatchers("/api/v1/selected-candidates/**").hasRole("RECRUITER")
-      .requestMatchers("/api/v1/candidate/**").hasRole("CANDIDATE")
-      .requestMatchers("/api/v1/assessments/*/start").hasRole("CANDIDATE")
-      .requestMatchers("/api/v1/assessments/*/submit").hasRole("CANDIDATE")
-      .requestMatchers("/api/v1/assessments/*/files/**").hasRole("CANDIDATE")
-      .requestMatchers("/api/v1/assessments/*/run").hasRole("CANDIDATE")
-      .requestMatchers("/api/v1/assessments/*/stop").hasRole("CANDIDATE")
-      .requestMatchers("/api/v1/assessments/*/execution/**").hasRole("CANDIDATE")
-      .requestMatchers("/api/v1/assessments/*/result").hasRole("CANDIDATE")
-      .anyRequest().authenticated()
-  )
-  ```
-
-- [ ] **11.8 — Refactor All Controllers** — Replace hardcoded/param user IDs with `AuthUtil.getCurrentUserId()`
-  - Update `WorkspaceController`, `CandidateController`, `AssessmentController`, `DashboardControllers`, `ReportController`, `SelectedCandidateController`
-
-#### ✅ Checkpoint: Full auth flow works
-```
-POST /auth/recruiter/signup   → 201 + token
-POST /auth/recruiter/login    → 200 + token
-GET  /auth/recruiter/me       → 200 profile (with token)
-GET  /workspaces (no token)   → 401 Unauthorized
-GET  /workspaces (with token) → 200 list
-POST /auth/candidate/signup   → 201 + token
-POST /auth/candidate/login    → 200 + token
-GET  /workspaces (candidate token) → 403 Forbidden
-```
-
----
-
-## Final Verification
-
-- [ ] **`mvn clean package -DskipTests`** — JAR builds
-- [ ] **`docker compose up --build`** — all 3 containers start
-- [ ] **Hibernate auto-creates all 11 tables** in PostgreSQL
-- [ ] **Full end-to-end smoke test:**
-  1. Recruiter signup → login → create workspace → search candidate → add to workspace → create assessment → view processing status → view dashboard → view reports
-  2. Candidate signup → login → view dashboard → start assessment → view feature → browse files → run → view logs → submit → view result
-
----
-
-## Build Order Summary
-
-| Order | Module | Endpoints | Auth? |
-|:---|:---|:---|:---|
-| **0** | Common Foundation | 0 | ❌ `permitAll()` |
-| **1** | Workspace | 8 | ❌ No auth |
-| **2** | Candidate Management | 4 | ❌ No auth |
-| **3** | Assessment | 8 | ❌ No auth |
-| **4** | Repository Analysis | 2 🟡 | ❌ No auth |
-| **5** | Feature Specification | 1 🟡 | ❌ No auth |
-| **6** | File Explorer | 3 🟡 | ❌ No auth |
-| **7** | Execution | 4 🟡 | ❌ No auth |
-| **8** | Evaluation & Results | 3 🟡 | ❌ No auth |
-| **9** | Dashboard | 2 | ❌ No auth |
-| **10** | Reports & Selected Candidates | 5 | ❌ No auth |
-| **11** | **Authentication** | 8 | ✅ **Lock down everything** |
-| | **Total** | **~48** | |

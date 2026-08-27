@@ -1,92 +1,131 @@
 package com.example.backend.assessment.controller;
 
-import com.example.backend.assessment.dto.*;
+import com.example.backend.assessment.dto.AssessmentResponse;
+import com.example.backend.assessment.dto.AssessmentStatusResponse;
+import com.example.backend.assessment.dto.CreateAssessmentRequest;
+import com.example.backend.assessment.dto.FeatureSpecificationResponse;
+import com.example.backend.assessment.dto.ProcessingStatusResponse;
 import com.example.backend.assessment.service.AssessmentService;
 import com.example.backend.common.dto.ApiResponse;
-import com.example.backend.common.enums.Role;
+import com.example.backend.common.exception.BadRequestException;
+import com.example.backend.common.util.UUIDUtils;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1")
+@RequiredArgsConstructor
+@CrossOrigin(originPatterns = "*")
 public class AssessmentController {
 
     private final AssessmentService assessmentService;
 
-    public AssessmentController(AssessmentService assessmentService) {
-        this.assessmentService = assessmentService;
-    }
-
     @PostMapping("/workspaces/{workspaceId}/assessments")
     public ResponseEntity<ApiResponse<AssessmentResponse>> createAssessment(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) UUID recruiterId,
-            @PathVariable UUID workspaceId,
+            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
+            @PathVariable String workspaceId,
             @Valid @RequestBody CreateAssessmentRequest request) {
-        AssessmentResponse response = assessmentService.createAssessment(recruiterId, workspaceId, request);
+        UUID wsId = UUIDUtils.parseUuidOrNull(workspaceId);
+        if (wsId == null) {
+            throw new BadRequestException("Invalid workspace ID: must be a valid UUID");
+        }
+        log.info("Creating assessment in workspace ID: {} for candidate ID: {}", wsId, request.getCandidateId());
+        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
+        AssessmentResponse response = assessmentService.createAssessment(recruiterId, wsId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Assessment creation initiated", response));
+                .body(ApiResponse.success("Assessment creation started", response));
     }
 
     @GetMapping("/workspaces/{workspaceId}/assessments")
-    public ResponseEntity<ApiResponse<List<AssessmentListItemResponse>>> getAssessmentsByWorkspace(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) UUID recruiterId,
-            @PathVariable UUID workspaceId) {
-        List<AssessmentListItemResponse> response = assessmentService.getAssessmentsByWorkspace(recruiterId, workspaceId);
-        return ResponseEntity.ok(ApiResponse.success("Assessments retrieved successfully", response));
+    public ResponseEntity<ApiResponse<java.util.List<AssessmentResponse>>> getAssessmentsByWorkspace(
+            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
+            @PathVariable String workspaceId) {
+        UUID wsId = UUIDUtils.parseUuidOrNull(workspaceId);
+        if (wsId == null) {
+            throw new BadRequestException("Invalid workspace ID: must be a valid UUID");
+        }
+        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
+        java.util.List<AssessmentResponse> response = assessmentService.getAssessmentsByWorkspace(recruiterId, wsId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/assessments/{assessmentId}")
-    public ResponseEntity<ApiResponse<AssessmentResponse>> getAssessmentById(
-            @RequestHeader(value = "X-User-Id", required = false) UUID userId,
-            @RequestHeader(value = "X-User-Role", required = false) Role role,
-            @PathVariable UUID assessmentId) {
-        AssessmentResponse response = assessmentService.getAssessmentById(userId, role, assessmentId);
-        return ResponseEntity.ok(ApiResponse.success("Assessment retrieved successfully", response));
-    }
-
-    @PutMapping("/assessments/{assessmentId}")
-    public ResponseEntity<ApiResponse<AssessmentResponse>> updateAssessment(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) UUID recruiterId,
-            @PathVariable UUID assessmentId,
-            @RequestBody UpdateAssessmentRequest request) {
-        AssessmentResponse response = assessmentService.updateAssessment(recruiterId, assessmentId, request);
-        return ResponseEntity.ok(ApiResponse.success("Assessment updated successfully", response));
-    }
-
-    @PostMapping("/assessments/{assessmentId}/cancel")
-    public ResponseEntity<ApiResponse<AssessmentResponse>> cancelAssessment(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) UUID recruiterId,
-            @PathVariable UUID assessmentId) {
-        AssessmentResponse response = assessmentService.cancelAssessment(recruiterId, assessmentId);
-        return ResponseEntity.ok(ApiResponse.success("Assessment cancelled successfully", response));
+    public ResponseEntity<ApiResponse<Object>> getAssessmentDetails(
+            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
+            @RequestHeader(value = "X-Candidate-Id", required = false) String candidateIdHeader,
+            @PathVariable String assessmentId) {
+        UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
+        if (aId == null) {
+            throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
+        }
+        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
+        UUID candidateId = UUIDUtils.parseUuidOrNull(candidateIdHeader);
+        Object response = assessmentService.getAssessmentDetails(recruiterId, candidateId, aId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/assessments/{assessmentId}/processing-status")
     public ResponseEntity<ApiResponse<ProcessingStatusResponse>> getProcessingStatus(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) UUID recruiterId,
-            @PathVariable UUID assessmentId) {
-        ProcessingStatusResponse response = assessmentService.getProcessingStatus(recruiterId, assessmentId);
-        return ResponseEntity.ok(ApiResponse.success("Processing status retrieved successfully", response));
+            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
+            @PathVariable String assessmentId) {
+        UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
+        if (aId == null) {
+            throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
+        }
+        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
+        ProcessingStatusResponse response = assessmentService.getProcessingStatus(recruiterId, aId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PostMapping("/assessments/{assessmentId}/start")
-    public ResponseEntity<ApiResponse<StartAssessmentResponse>> startAssessment(
-            @RequestHeader(value = "X-Candidate-Id", required = false) UUID candidateId,
-            @PathVariable UUID assessmentId) {
-        StartAssessmentResponse response = assessmentService.startAssessment(candidateId, assessmentId);
-        return ResponseEntity.ok(ApiResponse.success("Assessment started successfully", response));
+    @GetMapping("/assessments/{assessmentId}/feature")
+    public ResponseEntity<ApiResponse<FeatureSpecificationResponse>> getFeatureSpecification(
+            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
+            @RequestHeader(value = "X-Candidate-Id", required = false) String candidateIdHeader,
+            @PathVariable String assessmentId) {
+        UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
+        if (aId == null) {
+            throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
+        }
+        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
+        UUID candidateId = UUIDUtils.parseUuidOrNull(candidateIdHeader);
+        FeatureSpecificationResponse response = assessmentService.getFeatureSpecification(recruiterId, candidateId, aId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PostMapping("/assessments/{assessmentId}/submit")
-    public ResponseEntity<ApiResponse<SubmitAssessmentResponse>> submitAssessment(
-            @RequestHeader(value = "X-Candidate-Id", required = false) UUID candidateId,
-            @PathVariable UUID assessmentId) {
-        SubmitAssessmentResponse response = assessmentService.submitAssessment(candidateId, assessmentId);
-        return ResponseEntity.ok(ApiResponse.success("Assessment submitted successfully", response));
+    @GetMapping("/assessments/{assessmentId}/repository-analysis")
+    public ResponseEntity<ApiResponse<Object>> getRepositoryAnalysis(
+            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
+            @RequestHeader(value = "X-Candidate-Id", required = false) String candidateIdHeader,
+            @PathVariable String assessmentId) {
+        UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
+        if (aId == null) {
+            throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
+        }
+        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
+        UUID candidateId = UUIDUtils.parseUuidOrNull(candidateIdHeader);
+        Object response = assessmentService.getRepositoryAnalysis(recruiterId, candidateId, aId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/assessments/{assessmentId}/status")
+    public ResponseEntity<ApiResponse<AssessmentStatusResponse>> getAssessmentStatus(
+            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
+            @RequestHeader(value = "X-Candidate-Id", required = false) String candidateIdHeader,
+            @PathVariable String assessmentId) {
+        UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
+        if (aId == null) {
+            throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
+        }
+        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
+        UUID candidateId = UUIDUtils.parseUuidOrNull(candidateIdHeader);
+        AssessmentStatusResponse response = assessmentService.getAssessmentStatus(recruiterId, candidateId, aId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

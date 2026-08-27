@@ -1,6 +1,7 @@
 package com.example.backend.common.exception;
 
 public class ValidationException extends RuntimeException {
+
     private final String errorCode;
 
     public ValidationException(String message) {

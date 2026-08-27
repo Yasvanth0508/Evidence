@@ -1,54 +1,41 @@
 package com.example.backend.common.dto;
 
-import java.time.Instant;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+import java.util.Map;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiErrorResponse {
-    private boolean success;
+
+    @Builder.Default
+    private boolean success = false;
     private String message;
     private String errorCode;
-    private String timestamp;
-
-    public ApiErrorResponse() {
-        this.success = false;
-        this.timestamp = Instant.now().toString();
-    }
+    private Map<String, String> errors;
+    @Builder.Default
+    private Instant timestamp = Instant.now();
 
     public ApiErrorResponse(String message, String errorCode) {
         this.success = false;
         this.message = message;
         this.errorCode = errorCode;
-        this.timestamp = Instant.now().toString();
+        this.timestamp = Instant.now();
     }
 
-    public boolean isSuccess() {
-        return success;
-    }
-
-    public void setSuccess(boolean success) {
-        this.success = success;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
+    public ApiErrorResponse(String message, String errorCode, Map<String, String> errors) {
+        this.success = false;
         this.message = message;
-    }
-
-    public String getErrorCode() {
-        return errorCode;
-    }
-
-    public void setErrorCode(String errorCode) {
         this.errorCode = errorCode;
-    }
-
-    public String getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(String timestamp) {
-        this.timestamp = timestamp;
+        this.errors = errors;
+        this.timestamp = Instant.now();
     }
 }

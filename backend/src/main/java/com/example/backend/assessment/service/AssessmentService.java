@@ -54,18 +54,7 @@ public class AssessmentService {
         Workspace workspace = workspaceService.getWorkspaceAndVerifyOwnership(recruiterId, workspaceId);
 
         User candidate = userRepository.findById(request.getCandidateId())
-                .orElseGet(() -> userRepository.findAll().stream()
-                        .filter(u -> u.getRole() == Role.CANDIDATE)
-                        .findFirst()
-                        .orElseGet(() -> {
-                            User newCand = User.builder()
-                                    .name("Candidate")
-                                    .email("candidate@example.com")
-                                    .passwordHash("$2a$10$defaultMockPasswordHashForDevOnly")
-                                    .role(Role.CANDIDATE)
-                                    .build();
-                            return userRepository.save(newCand);
-                        }));
+                .orElseThrow(() -> new ResourceNotFoundException("Candidate not found with ID: " + request.getCandidateId()));
 
         // Ensure candidate is enrolled in workspace
         if (!workspaceCandidateRepository.existsByWorkspaceIdAndCandidateId(workspace.getId(), candidate.getId())) {
@@ -139,7 +128,7 @@ public class AssessmentService {
                     .build();
         }
 
-        User recruiter = workspaceService.getOrCreateRecruiter(recruiterId);
+        User recruiter = workspaceService.getRecruiterOrThrow(recruiterId);
         if (!assessment.getWorkspace().getRecruiter().getId().equals(recruiter.getId())) {
             throw new ForbiddenException("You do not have permission to access this assessment.", "FORBIDDEN");
         }
@@ -171,7 +160,7 @@ public class AssessmentService {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assessment not found with id: " + assessmentId, "ASSESSMENT_NOT_FOUND"));
 
-        User recruiter = workspaceService.getOrCreateRecruiter(recruiterId);
+        User recruiter = workspaceService.getRecruiterOrThrow(recruiterId);
         if (!assessment.getWorkspace().getRecruiter().getId().equals(recruiter.getId())) {
             throw new ForbiddenException("You do not have permission to access this assessment.", "FORBIDDEN");
         }
@@ -247,8 +236,9 @@ public class AssessmentService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getRepositoryAnalysis(UUID recruiterId, UUID candidateId, UUID assessmentId) {
-        Assessment assessment = assessmentRepository.findById(assessmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Assessment not found with id: " + assessmentId, "ASSESSMENT_NOT_FOUND"));
+        if (!assessmentRepository.existsById(assessmentId)) {
+            throw new ResourceNotFoundException("Assessment not found with id: " + assessmentId, "ASSESSMENT_NOT_FOUND");
+        }
 
         Optional<RepositoryAnalysis> analysisOpt = repositoryAnalysisRepository.findByAssessmentId(assessmentId);
         if (analysisOpt.isEmpty()) {

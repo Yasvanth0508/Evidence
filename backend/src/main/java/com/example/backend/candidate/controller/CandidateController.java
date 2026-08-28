@@ -41,13 +41,14 @@ public class CandidateController {
 
     @GetMapping("/{candidateId}/assessments")
     public ResponseEntity<ApiResponse<List<CandidateAssessmentItemResponse>>> getCandidateAssessments(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal,
             @PathVariable String candidateId) {
         UUID candId = UUIDUtils.parseUuidOrNull(candidateId);
         if (candId == null) {
             throw new BadRequestException("Invalid candidate ID: must be a valid UUID");
         }
-        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
+        if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
+        UUID recruiterId = principal.getId();
         log.info("Fetching assessments for candidate ID: {} by recruiter ID: {}", candId, recruiterId);
         List<CandidateAssessmentItemResponse> response = candidateService.getCandidateAssessmentsForRecruiter(recruiterId, candId);
         return ResponseEntity.ok(ApiResponse.success(response));

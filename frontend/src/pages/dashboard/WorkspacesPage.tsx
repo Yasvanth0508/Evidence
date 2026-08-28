@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 export const WorkspacesPage = () => {
-  const { workspaces, createWorkspace } = useHRStore();
+  const { workspaces, setWorkspaces, createWorkspace } = useHRStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -36,29 +36,27 @@ export const WorkspacesPage = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Sync backend workspaces into local store on initial load if available
+  // Sync backend workspaces into store on load
   useEffect(() => {
     let isMounted = true;
     workspaceService
       .getWorkspaces()
       .then((backendWsList) => {
         if (isMounted && Array.isArray(backendWsList)) {
-          backendWsList.forEach((bWs) => {
-            const exists = workspaces.some((w) => w.id === bWs.id || w.name === bWs.name);
-            if (!exists) {
-              createWorkspace({
-                id: bWs.id,
-                name: bWs.name,
-                description: bWs.description || "",
-                track: "Java Spring Boot Backend",
-                defaultDurationMinutes: 90,
-              });
-            }
-          });
+          const mapped = backendWsList.map((bWs) => ({
+            id: bWs.id,
+            name: bWs.name,
+            description: bWs.description || "",
+            track: "Java Spring Boot Backend",
+            defaultDurationMinutes: 90,
+            status: (bWs.status as any) || "ACTIVE",
+            createdAt: new Date().toISOString().split("T")[0],
+            candidateIds: [],
+          }));
+          setWorkspaces(mapped);
         }
       })
       .catch((err) => {
-        // Backend offline or local mode
         console.debug("Backend workspace sync skipped:", err.message);
       });
     return () => {

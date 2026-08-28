@@ -42,7 +42,7 @@ public class DashboardService {
 
     public RecruiterDashboardResponse getRecruiterDashboard(UUID recruiterId) {
         log.info("Calculating recruiter dashboard metrics for recruiterId: {}", recruiterId);
-        User recruiter = workspaceService.getOrCreateRecruiter(recruiterId);
+        User recruiter = workspaceService.getRecruiterOrThrow(recruiterId);
 
         long workspaceCount = workspaceRepository.countByRecruiterId(recruiter.getId());
         long candidateCount = workspaceCandidateRepository.countDistinctCandidatesByRecruiterId(recruiter.getId());
@@ -120,13 +120,10 @@ public class DashboardService {
     }
 
     private User getCandidate(UUID candidateId) {
-        if (candidateId != null) {
-            return userRepository.findById(candidateId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Candidate not found with id: " + candidateId, "CANDIDATE_NOT_FOUND"));
+        if (candidateId == null) {
+            throw new com.example.backend.common.exception.UnauthorizedException("Authentication required.");
         }
-        return userRepository.findAll().stream()
-                .filter(u -> u.getRole() == Role.CANDIDATE)
-                .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Candidate not found", "CANDIDATE_NOT_FOUND"));
+        return userRepository.findById(candidateId)
+                .orElseThrow(() -> new ResourceNotFoundException("Candidate not found with id: " + candidateId, "CANDIDATE_NOT_FOUND"));
     }
 }

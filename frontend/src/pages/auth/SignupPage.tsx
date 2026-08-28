@@ -3,9 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { authService } from "@/services/authService";
-import { useAuthStore } from "@/store/authStore";
-import { useHRStore } from "@/store/hrStore";
+import { useAuthStore, UserRole } from "@/store/authStore";
 import {
   User as UserIcon,
   Mail,
@@ -17,101 +17,121 @@ import {
   UserPlus,
   Loader2,
   ChevronDown,
-  Briefcase,
+  UserCheck,
 } from "lucide-react";
 
 export const SignupPage = () => {
   const navigate = useNavigate();
   const loginToStore = useAuthStore((state) => state.login);
-  const { setActiveCandidateId } = useHRStore();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState<"RECRUITER" | "CANDIDATE" | "">("");
+  const [role, setRole] = useState<UserRole>("CANDIDATE");
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const redirectByRole = (assignedRole: UserRole) => {
+    if (assignedRole === "RECRUITER") {
+      navigate("/dashboard", { replace: true });
+    } else {
+      navigate("/candidate/dashboard", { replace: true });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
 
-    // 1. Validate Full Name
     if (!fullName.trim()) {
       setErrorMessage("Please enter your full name.");
       return;
     }
 
-    // 2. Validate Email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email.trim() || !emailRegex.test(email.trim())) {
       setErrorMessage("Please enter a valid email address.");
       return;
     }
 
-    // 3. Validate Password
-    if (!password) {
-      setErrorMessage("Please enter a password.");
-      return;
-    }
-
-    if (password.length < 6) {
+    if (!password || password.length < 6) {
       setErrorMessage("Password must be at least 6 characters long.");
       return;
     }
 
-    // 4. Validate Confirm Password
     if (password !== confirmPassword) {
       setErrorMessage("Passwords do not match. Please verify your password.");
-      return;
-    }
-
-    // 5. Validate Role Selection
-    if (!role || (role !== "RECRUITER" && role !== "CANDIDATE")) {
-      setErrorMessage("Please select a role.");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const response: any = await authService.signup(
+      const response = await authService.signup(
         fullName.trim(),
         email.trim().toLowerCase(),
         password,
         role
       );
 
-      const userPayload = response?.user || response;
-      const token = response?.token || "jwt-session-token";
+      if (response && response.token) {
+        loginToStore(
+          {
+            id: response.id,
+            name: response.name,
+            email: response.email,
+            role: response.role,
+            authProvider: response.authProvider || "LOCAL",
+          },
+          response.token
+        );
 
-      if (userPayload) {
-        const userObj = {
-          ...userPayload,
-          id: userPayload.id,
-          name: fullName.trim(),
-          email: email.trim().toLowerCase(),
-          role: role,
-        };
-
-        loginToStore(userObj, token);
-        setActiveCandidateId(userObj.id);
-
-        if (role === "CANDIDATE") {
-          navigate("/candidate");
-        } else {
-          navigate("/dashboard");
-        }
+        redirectByRole(response.role);
+      } else {
+        throw new Error("Registration succeeded but no token was returned.");
       }
     } catch (err: any) {
-      console.warn("Signup error:", err);
+      console.warn("Signup failed:", err);
       setErrorMessage(
         err?.response?.data?.message ||
-        "Registration failed. User may already exist or validation failed."
+        err?.message ||
+        "Registration failed. A user with this email may already exist."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credential: string) => {
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      const response = await authService.googleAuth(credential, role);
+
+      if (response && response.token) {
+        loginToStore(
+          {
+            id: response.id,
+            name: response.name,
+            email: response.email,
+            role: response.role,
+            authProvider: response.authProvider || "GOOGLE",
+          },
+          response.token
+        );
+
+        redirectByRole(response.role);
+      }
+    } catch (err: any) {
+      console.warn("Google signup failed:", err);
+      setErrorMessage(
+        err?.response?.data?.message ||
+        "Google authentication failed. Please try again."
       );
     } finally {
       setIsLoading(false);
@@ -155,19 +175,19 @@ export const SignupPage = () => {
         <div className="max-w-lg w-full space-y-6">
           <div className="bg-white border border-gray-200/90 rounded-3xl p-8 sm:p-10 shadow-sm">
             {/* Top Icon Badge */}
-            <div className="flex justify-center mb-4">
-              <div className="w-14 h-14 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center text-[#F05323] shadow-sm">
-                <UserPlus className="w-6 h-6" />
+            <div className="flex justify-center mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center text-[#F05323] shadow-2xs">
+                <UserPlus className="w-5 h-5" />
               </div>
             </div>
 
             {/* Title & Subtitle */}
-            <div className="text-center space-y-1 mb-8">
+            <div className="text-center space-y-1 mb-6">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
                 Create Your Account
               </h1>
               <p className="text-xs sm:text-sm text-gray-500">
-                Create your account to access the platform.
+                Join the platform as a Candidate or Recruiter
               </p>
             </div>
 
@@ -177,6 +197,49 @@ export const SignupPage = () => {
                 {errorMessage}
               </div>
             )}
+
+            {/* Role Selection Dropdown Input */}
+            <div className="mb-6 space-y-1.5">
+              <label className="text-xs font-semibold text-gray-700 block">
+                Account Type / Role <span className="text-[#F05323]">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                  <UserCheck className="w-4 h-4" />
+                </div>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as UserRole)}
+                  className="w-full h-11 pl-10 pr-10 rounded-2xl border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#F05323] focus:border-[#F05323] transition-colors appearance-none cursor-pointer shadow-2xs"
+                >
+                  <option value="CANDIDATE">Candidate — Take assessments, submit code & view scores</option>
+                  <option value="RECRUITER">Recruiter — Manage workspaces, schedule tests & view candidate reports</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-gray-400">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* Google Signup Button */}
+            <div className="mb-6">
+              <GoogleAuthButton
+                text="signup_with"
+                disabled={isLoading}
+                onSuccess={handleGoogleSuccess}
+                onError={(err) => setErrorMessage(err)}
+              />
+            </div>
+
+            {/* Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center text-xs text-gray-500">
+                <span className="bg-white px-3 text-gray-400 font-medium">or register with email</span>
+              </div>
+            </div>
 
             {/* Unified Single Registration Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -188,7 +251,7 @@ export const SignupPage = () => {
                 <Input
                   type="text"
                   required
-                  placeholder="Enter your full name"
+                  placeholder="e.g. Alex Morgan"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   icon={<UserIcon className="w-4 h-4 text-gray-400" />}
@@ -203,7 +266,7 @@ export const SignupPage = () => {
                 <Input
                   type="email"
                   required
-                  placeholder="Enter your email address"
+                  placeholder="alex@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   icon={<Mail className="w-4 h-4 text-gray-400" />}
@@ -218,7 +281,7 @@ export const SignupPage = () => {
                 <Input
                   type={showPassword ? "text" : "password"}
                   required
-                  placeholder="Enter your password"
+                  placeholder="Create a strong password (min 6 characters)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   icon={<Lock className="w-4 h-4 text-gray-400" />}
@@ -246,7 +309,7 @@ export const SignupPage = () => {
                 <Input
                   type={showConfirmPassword ? "text" : "password"}
                   required
-                  placeholder="Confirm your password"
+                  placeholder="Repeat password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   icon={<Lock className="w-4 h-4 text-gray-400" />}
@@ -266,35 +329,7 @@ export const SignupPage = () => {
                 />
               </div>
 
-              {/* Role Dropdown */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-700 block">
-                  Role
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-                    <Briefcase className="w-4 h-4" />
-                  </div>
-                  <select
-                    value={role}
-                    onChange={(e) =>
-                      setRole(e.target.value as "RECRUITER" | "CANDIDATE" | "")
-                    }
-                    className="flex h-11 w-full rounded-2xl border border-gray-300 bg-white pl-10 pr-10 text-xs text-gray-900 shadow-2xs transition-colors focus:border-[#F05323] focus:outline-none focus:ring-2 focus:ring-[#F05323]/20 appearance-none cursor-pointer"
-                  >
-                    <option value="" disabled className="text-gray-400">
-                      Select your role
-                    </option>
-                    <option value="RECRUITER">Recruiter</option>
-                    <option value="CANDIDATE">Candidate</option>
-                  </select>
-                  <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-gray-400">
-                    <ChevronDown className="w-4 h-4" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Submit Button (Create Account ->) */}
+              {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={isLoading}
@@ -313,20 +348,11 @@ export const SignupPage = () => {
               </Button>
             </form>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
-              </div>
-              <div className="relative flex justify-center text-xs text-gray-500">
-                <span className="bg-white px-3 text-gray-400">or</span>
-              </div>
-            </div>
-
             {/* Switch to Login */}
-            <div className="text-center text-xs text-gray-500">
+            <div className="mt-8 text-center text-xs text-gray-500">
               Already have an account?{" "}
               <Link
-                to={role ? `/login?role=${role.toLowerCase()}` : "/login"}
+                to="/login"
                 className="font-bold text-[#F05323] hover:underline"
               >
                 Sign In
@@ -345,7 +371,7 @@ export const SignupPage = () => {
       {/* 3. Footer */}
       <footer className="bg-white border-t border-gray-200 py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-400 gap-4">
-          <p>© 2026 EVIDENCE. Recruiter & Candidate Technical Assessment Platform.</p>
+          <p>© 2026 EVIDENCE. Unified Technical Assessment Platform.</p>
           <div className="flex space-x-6">
             <Link to="/#overview" className="hover:text-gray-600">Home</Link>
             <Link to="/#how-it-works" className="hover:text-gray-600">How It Works</Link>

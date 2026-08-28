@@ -11,18 +11,13 @@ import {
   CheckCircle2,
   Clock,
   LogOut,
-  User,
 } from "lucide-react";
 
 export const CandidateDashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const {
-    candidates,
-    activeCandidateId,
-    setActiveCandidateId,
     getCandidateAssessments,
-    getCandidateById,
     assignAssessment,
   } = useHRStore();
 
@@ -34,15 +29,17 @@ export const CandidateDashboard = () => {
           (data.scheduledAssessments || []).forEach((asmt) => {
             assignAssessment({
               id: asmt.assessmentId,
-              workspaceId: "ws-live",
-              candidateId: activeCandidateId,
+              workspaceId: (asmt as any).workspaceId || "",
+              candidateId: user?.id || "",
               title: `${asmt.workspaceName} Assessment`,
               repositoryUrl: "https://github.com/scanurag/FoodFrenzy.git",
               branchName: "master",
               difficulty: (asmt.difficulty as any) || "INTERMEDIATE",
-              durationMinutes: asmt.durationMinutes || 90,
-              scheduledDate: new Date(asmt.scheduledStartAt).toLocaleDateString(),
-              scheduledTime: new Date(asmt.scheduledStartAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              durationMinutes: (asmt as any).durationMinutes || 90,
+              scheduledDate: asmt.scheduledStartAt ? new Date(asmt.scheduledStartAt).toLocaleDateString() : "Today",
+              scheduledTime: asmt.scheduledStartAt ? new Date(asmt.scheduledStartAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "10:00 AM",
+              scheduledStartAt: asmt.scheduledStartAt,
+              scheduledEndAt: asmt.scheduledEndAt,
             });
           });
         }
@@ -53,25 +50,18 @@ export const CandidateDashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [activeCandidateId]);
+  }, [user]);
 
-  // Find candidate profile matching active ID or logged-in user
   const activeCandidate = useMemo(() => {
-    const fromId = activeCandidateId ? getCandidateById(activeCandidateId) : null;
-    if (fromId) return fromId;
-    const fromEmail = user?.email
-      ? candidates.find((c) => c.email.toLowerCase() === user.email.toLowerCase())
-      : null;
-    if (fromEmail) return fromEmail;
-    if (candidates.length > 0) return candidates[0];
     return {
-      id: user?.id || "cand-current",
-      name: user?.name || "Candidate",
-      email: user?.email || "candidate@example.com",
+      id: user?.id || "",
+      name: user?.name || "",
+      email: user?.email || "",
       role: "Java Backend Developer",
       isSelected: false,
+      avatarUrl: ""
     };
-  }, [activeCandidateId, user, candidates, getCandidateById]);
+  }, [user]);
 
   // Fetch assessments for this candidate
   const { completed, scheduled } = useMemo(() => {
@@ -83,7 +73,7 @@ export const CandidateDashboard = () => {
 
   const handleLogout = () => {
     logout();
-    navigate("/login?role=candidate");
+    navigate("/login");
   };
 
   return (
@@ -107,22 +97,7 @@ export const CandidateDashboard = () => {
 
           {/* User Profile & Demo Candidate Switcher */}
           <div className="flex items-center gap-4">
-            {/* Demo Candidate Switcher Dropdown */}
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
-              <User className="w-3.5 h-3.5 text-gray-400" />
-              <span className="text-gray-400">Viewing as:</span>
-              <select
-                value={activeCandidate.id}
-                onChange={(e) => setActiveCandidateId(e.target.value)}
-                className="bg-transparent font-bold text-gray-900 focus:outline-none cursor-pointer"
-              >
-                {candidates.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.email})
-                  </option>
-                ))}
-              </select>
-            </div>
+
 
             {/* Logout button */}
             <Button

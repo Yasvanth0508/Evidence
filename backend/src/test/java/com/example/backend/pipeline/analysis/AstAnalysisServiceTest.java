@@ -41,6 +41,7 @@ public class AstAnalysisServiceTest {
         ProjectStructureDto ps = result.getProjectStructure();
         SourceCodeStructureDto sc = result.getSourceCodeStructure();
         ContentDetailsDto cd = result.getContentDetails();
+        assertNotNull(cd, "ContentDetails must not be null");
 
         System.out.println("Language / Version: " + ps.getLanguage() + " " + ps.getJavaVersion());
         System.out.println("Framework:          Spring Boot " + ps.getSpringBootVersion());

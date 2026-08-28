@@ -27,7 +27,7 @@ export const Sidebar = () => {
 
   const handleLogout = () => {
     logout();
-    navigate("/login?role=recruiter");
+    navigate("/login");
   };
 
   return (
@@ -79,13 +79,13 @@ export const Sidebar = () => {
             </div>
             <div className="overflow-hidden">
               <span className="text-[10px] uppercase font-bold text-[#F05323] tracking-wider block">
-                {user?.role || "HR RECRUITER"}
+                {user?.role || ""}
               </span>
               <p className="text-xs text-gray-700 font-semibold truncate leading-tight">
-                {user?.name || "Rahul Sharma"}
+                {user?.name || ""}
               </p>
               <p className="text-[11px] text-gray-500 truncate leading-tight">
-                {user?.email || "recruiter@example.com"}
+                {user?.email || ""}
               </p>
             </div>
           </div>

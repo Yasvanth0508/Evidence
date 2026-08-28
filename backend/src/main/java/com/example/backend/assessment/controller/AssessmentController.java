@@ -29,7 +29,7 @@ public class AssessmentController {
 
     @PostMapping("/workspaces/{workspaceId}/assessments")
     public ResponseEntity<ApiResponse<AssessmentResponse>> createAssessment(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal,
             @PathVariable String workspaceId,
             @Valid @RequestBody CreateAssessmentRequest request) {
         UUID wsId = UUIDUtils.parseUuidOrNull(workspaceId);
@@ -37,7 +37,8 @@ public class AssessmentController {
             throw new BadRequestException("Invalid workspace ID: must be a valid UUID");
         }
         log.info("Creating assessment in workspace ID: {} for candidate ID: {}", wsId, request.getCandidateId());
-        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
+        if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
+        UUID recruiterId = principal.getId();
         AssessmentResponse response = assessmentService.createAssessment(recruiterId, wsId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Assessment creation started", response));
@@ -45,86 +46,88 @@ public class AssessmentController {
 
     @GetMapping("/workspaces/{workspaceId}/assessments")
     public ResponseEntity<ApiResponse<java.util.List<AssessmentResponse>>> getAssessmentsByWorkspace(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal,
             @PathVariable String workspaceId) {
         UUID wsId = UUIDUtils.parseUuidOrNull(workspaceId);
         if (wsId == null) {
             throw new BadRequestException("Invalid workspace ID: must be a valid UUID");
         }
-        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
+        if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
+        UUID recruiterId = principal.getId();
         java.util.List<AssessmentResponse> response = assessmentService.getAssessmentsByWorkspace(recruiterId, wsId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/assessments/{assessmentId}")
     public ResponseEntity<ApiResponse<Object>> getAssessmentDetails(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
-            @RequestHeader(value = "X-Candidate-Id", required = false) String candidateIdHeader,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal,
             @PathVariable String assessmentId) {
         UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
         if (aId == null) {
             throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
         }
-        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
-        UUID candidateId = UUIDUtils.parseUuidOrNull(candidateIdHeader);
+        if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
+        UUID recruiterId = principal.getRole() == com.example.backend.common.enums.Role.RECRUITER ? principal.getId() : null;
+        UUID candidateId = principal.getRole() == com.example.backend.common.enums.Role.CANDIDATE ? principal.getId() : null;
         Object response = assessmentService.getAssessmentDetails(recruiterId, candidateId, aId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/assessments/{assessmentId}/processing-status")
     public ResponseEntity<ApiResponse<ProcessingStatusResponse>> getProcessingStatus(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal,
             @PathVariable String assessmentId) {
         UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
         if (aId == null) {
             throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
         }
-        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
+        if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
+        UUID recruiterId = principal.getId();
         ProcessingStatusResponse response = assessmentService.getProcessingStatus(recruiterId, aId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/assessments/{assessmentId}/feature")
     public ResponseEntity<ApiResponse<FeatureSpecificationResponse>> getFeatureSpecification(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
-            @RequestHeader(value = "X-Candidate-Id", required = false) String candidateIdHeader,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal,
             @PathVariable String assessmentId) {
         UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
         if (aId == null) {
             throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
         }
-        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
-        UUID candidateId = UUIDUtils.parseUuidOrNull(candidateIdHeader);
+        if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
+        UUID recruiterId = principal.getRole() == com.example.backend.common.enums.Role.RECRUITER ? principal.getId() : null;
+        UUID candidateId = principal.getRole() == com.example.backend.common.enums.Role.CANDIDATE ? principal.getId() : null;
         FeatureSpecificationResponse response = assessmentService.getFeatureSpecification(recruiterId, candidateId, aId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/assessments/{assessmentId}/repository-analysis")
     public ResponseEntity<ApiResponse<Object>> getRepositoryAnalysis(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
-            @RequestHeader(value = "X-Candidate-Id", required = false) String candidateIdHeader,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal,
             @PathVariable String assessmentId) {
         UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
         if (aId == null) {
             throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
         }
-        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
-        UUID candidateId = UUIDUtils.parseUuidOrNull(candidateIdHeader);
+        if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
+        UUID recruiterId = principal.getRole() == com.example.backend.common.enums.Role.RECRUITER ? principal.getId() : null;
+        UUID candidateId = principal.getRole() == com.example.backend.common.enums.Role.CANDIDATE ? principal.getId() : null;
         Object response = assessmentService.getRepositoryAnalysis(recruiterId, candidateId, aId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/assessments/{assessmentId}/status")
     public ResponseEntity<ApiResponse<AssessmentStatusResponse>> getAssessmentStatus(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader,
-            @RequestHeader(value = "X-Candidate-Id", required = false) String candidateIdHeader,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal,
             @PathVariable String assessmentId) {
         UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
         if (aId == null) {
             throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
         }
-        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
-        UUID candidateId = UUIDUtils.parseUuidOrNull(candidateIdHeader);
+        if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
+        UUID recruiterId = principal.getRole() == com.example.backend.common.enums.Role.RECRUITER ? principal.getId() : null;
+        UUID candidateId = principal.getRole() == com.example.backend.common.enums.Role.CANDIDATE ? principal.getId() : null;
         AssessmentStatusResponse response = assessmentService.getAssessmentStatus(recruiterId, candidateId, aId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }

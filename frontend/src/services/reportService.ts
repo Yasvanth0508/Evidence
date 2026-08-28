@@ -14,7 +14,8 @@ export interface ReportItem {
 }
 
 export interface ReportListResponse {
-  reports: ReportItem[];
+  content?: ReportItem[];
+  reports?: ReportItem[];
   page: number;
   size: number;
   totalElements: number;
@@ -22,11 +23,16 @@ export interface ReportListResponse {
 }
 
 export interface ReportSummaryResponse {
-  totalEvaluated: number;
-  averageScore: number;
-  highestScore: number;
-  lowestScore: number;
-  passRate: number;
+  totalCandidates?: number;
+  completedAssessments?: number;
+  scheduledAssessments?: number;
+  participationRate?: number;
+  passedAssessments?: number;
+  passRate?: number;
+  averageScore?: number;
+  totalEvaluated?: number;
+  highestScore?: number;
+  lowestScore?: number;
 }
 
 export interface SelectedCandidateItem {

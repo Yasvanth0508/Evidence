@@ -5,14 +5,12 @@ import com.example.backend.common.enums.AssessmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@Repository
 public interface AssessmentRepository extends JpaRepository<Assessment, UUID> {
 
     List<Assessment> findAllByWorkspaceId(UUID workspaceId);
@@ -39,4 +37,7 @@ public interface AssessmentRepository extends JpaRepository<Assessment, UUID> {
     org.springframework.data.domain.Page<Assessment> findAllByWorkspaceId(UUID workspaceId, org.springframework.data.domain.Pageable pageable);
 
     org.springframework.data.domain.Page<Assessment> findAllByWorkspaceIdAndStatus(UUID workspaceId, AssessmentStatus status, org.springframework.data.domain.Pageable pageable);
+
+    @Query("SELECT a FROM Assessment a WHERE a.workspace.recruiter.id = :recruiterId")
+    org.springframework.data.domain.Page<Assessment> findAllByRecruiterId(@Param("recruiterId") UUID recruiterId, org.springframework.data.domain.Pageable pageable);
 }

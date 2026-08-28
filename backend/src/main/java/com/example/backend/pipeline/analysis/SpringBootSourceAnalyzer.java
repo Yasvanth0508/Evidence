@@ -1,17 +1,11 @@
 package com.example.backend.pipeline.analysis;
 
 import com.example.backend.pipeline.analysis.dto.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class SpringBootSourceAnalyzer {
-
-    private static final Logger log = LoggerFactory.getLogger(SpringBootSourceAnalyzer.class);
 
     private final SourceCodeStructureDto sourceCodeStructure = new SourceCodeStructureDto();
 

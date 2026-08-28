@@ -39,10 +39,10 @@ public class DockerCommandExecutor {
             List<String> commandList = new ArrayList<>(Arrays.asList(command));
             boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
 
-            // On Windows, if command starts with a script or mvn/mvnw, invoke through cmd.exe /c
+            // On Windows, if command starts with a script, mvn/mvnw, or docker, invoke through cmd.exe /c
             if (isWindows && commandList.size() > 0) {
                 String first = commandList.get(0);
-                if (first.endsWith(".cmd") || first.endsWith(".bat") || first.equals("mvn") || first.equals("mvnw")) {
+                if (first.endsWith(".cmd") || first.endsWith(".bat") || first.equals("mvn") || first.equals("mvnw") || first.equals("docker") || first.equals("docker.exe")) {
                     List<String> wrapped = new ArrayList<>();
                     wrapped.add("cmd.exe");
                     wrapped.add("/c");

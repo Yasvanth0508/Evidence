@@ -21,7 +21,7 @@ import {
 import { AstAnalysisDrawer } from "@/components/dashboard/AstAnalysisDrawer";
 
 export const CandidateReport = () => {
-  const { id = "asmt-001" } = useParams<{ id: string }>();
+  const { id = "" } = useParams<{ id: string }>();
   const { data, isLoading, error, refetch } = useCandidateReport(id);
   const [isAstDrawerOpen, setIsAstDrawerOpen] = useState(false);
 

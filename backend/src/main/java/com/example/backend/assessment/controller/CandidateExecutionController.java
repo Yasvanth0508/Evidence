@@ -15,6 +15,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+/**
+ * Controller managing application compilation, container execution, live terminal logs,
+ * and application lifecycle controls.
+ */
 @RestController
 @RequestMapping("/api/v1/assessments/{assessmentId}")
 @RequiredArgsConstructor
@@ -25,68 +29,88 @@ public class CandidateExecutionController {
     private final CandidateExecutionService executionService;
 
     /**
-     * Phase B.1: Trigger application compilation and execution.
+     * Phase B.1: Compiles candidate application and launches ephemeral container/sandbox.
+     *
+     * @param assessmentId      UUID string of the assessment.
+     * @param candidateIdHeader Optional or injected X-Candidate-Id header.
+     * @return ApiResponse containing ExecutionRunResponse.
      */
     @PostMapping("/run")
     public ResponseEntity<ApiResponse<ExecutionRunResponse>> runCandidateApplication(
             @PathVariable String assessmentId,
-            @RequestHeader(value = "X-Candidate-Id", required = false) String candidateIdHeader) {
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal) {
         UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
         if (aId == null) {
             throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
         }
-        UUID candidateId = UUIDUtils.parseUuidOrNull(candidateIdHeader);
+        if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
+        UUID candidateId = principal.getId();
         log.info("REST: Run application for assessment {} by candidate {}", aId, candidateId);
         ExecutionRunResponse response = executionService.runCandidateApplication(candidateId, aId);
         return ResponseEntity.ok(ApiResponse.success("Application compilation and execution started", response));
     }
 
     /**
-     * Phase B.2: Check current application execution status.
+     * Phase B.2: Checks current application execution status and container uptime.
+     *
+     * @param assessmentId      UUID string of the assessment.
+     * @param candidateIdHeader Optional or injected X-Candidate-Id header.
+     * @return ApiResponse containing ExecutionStatusResponse.
      */
     @GetMapping("/execution/status")
     public ResponseEntity<ApiResponse<ExecutionStatusResponse>> getExecutionStatus(
             @PathVariable String assessmentId,
-            @RequestHeader(value = "X-Candidate-Id", required = false) String candidateIdHeader) {
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal) {
         UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
         if (aId == null) {
             throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
         }
-        UUID candidateId = UUIDUtils.parseUuidOrNull(candidateIdHeader);
+        if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
+        UUID candidateId = principal.getId();
         log.info("REST: Get execution status for assessment {}", aId);
         ExecutionStatusResponse response = executionService.getExecutionStatus(candidateId, aId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     /**
-     * Phase B.3: Fetch live execution logs and terminal output.
+     * Phase B.3: Fetches live streaming execution logs and terminal output.
+     *
+     * @param assessmentId      UUID string of the assessment.
+     * @param candidateIdHeader Optional or injected X-Candidate-Id header.
+     * @return ApiResponse containing ExecutionLogsResponse.
      */
     @GetMapping("/execution/logs")
     public ResponseEntity<ApiResponse<ExecutionLogsResponse>> getExecutionLogs(
             @PathVariable String assessmentId,
-            @RequestHeader(value = "X-Candidate-Id", required = false) String candidateIdHeader) {
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal) {
         UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
         if (aId == null) {
             throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
         }
-        UUID candidateId = UUIDUtils.parseUuidOrNull(candidateIdHeader);
+        if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
+        UUID candidateId = principal.getId();
         log.info("REST: Fetch execution logs for assessment {}", aId);
         ExecutionLogsResponse response = executionService.getExecutionLogs(candidateId, aId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     /**
-     * Phase B.4: Stop running application container or process.
+     * Phase B.4: Terminates running candidate container or native process.
+     *
+     * @param assessmentId      UUID string of the assessment.
+     * @param candidateIdHeader Optional or injected X-Candidate-Id header.
+     * @return ApiResponse containing StopExecutionResponse.
      */
     @PostMapping("/stop")
     public ResponseEntity<ApiResponse<StopExecutionResponse>> stopCandidateApplication(
             @PathVariable String assessmentId,
-            @RequestHeader(value = "X-Candidate-Id", required = false) String candidateIdHeader) {
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal) {
         UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
         if (aId == null) {
             throw new BadRequestException("Invalid assessment ID: must be a valid UUID");
         }
-        UUID candidateId = UUIDUtils.parseUuidOrNull(candidateIdHeader);
+        if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
+        UUID candidateId = principal.getId();
         log.info("REST: Stop application for assessment {}", aId);
         StopExecutionResponse response = executionService.stopCandidateApplication(candidateId, aId);
         return ResponseEntity.ok(ApiResponse.success("Container stopped successfully", response));

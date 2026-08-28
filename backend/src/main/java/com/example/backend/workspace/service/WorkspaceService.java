@@ -4,11 +4,12 @@ import com.example.backend.assessment.entity.Assessment;
 import com.example.backend.assessment.repository.*;
 import com.example.backend.auth.entity.User;
 import com.example.backend.auth.repository.UserRepository;
+import com.example.backend.common.enums.AuthProvider;
 import com.example.backend.common.enums.Role;
 import com.example.backend.common.enums.WorkspaceStatus;
-import com.example.backend.common.exception.DuplicateResourceException;
 import com.example.backend.common.exception.ForbiddenException;
 import com.example.backend.common.exception.ResourceNotFoundException;
+import com.example.backend.common.exception.UnauthorizedException;
 import com.example.backend.workspace.dto.*;
 import com.example.backend.workspace.entity.Workspace;
 import com.example.backend.workspace.entity.WorkspaceCandidate;
@@ -17,6 +18,7 @@ import com.example.backend.workspace.repository.WorkspaceCandidateRepository;
 import com.example.backend.workspace.repository.WorkspaceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,9 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Service managing recruiter workspaces, candidate enrollment, and workspace lifecycle.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -42,10 +47,19 @@ public class WorkspaceService {
     private final SubmissionRepository submissionRepository;
     private final EvaluationReportRepository evaluationReportRepository;
     private final TestResultRepository testResultRepository;
+    private final PasswordEncoder passwordEncoder;
 
+    /**
+     * Creates a new assessment workspace owned by the authenticated recruiter.
+     *
+     * @param recruiterId UUID of the authenticated recruiter creating the workspace.
+     * @param request     DTO containing workspace name and optional description.
+     * @return WorkspaceResponse containing details of the created workspace.
+     * @throws UnauthorizedException if recruiter ID is missing or invalid.
+     */
     public WorkspaceResponse createWorkspace(UUID recruiterId, CreateWorkspaceRequest request) {
         log.info("Creating workspace '{}' for recruiterId: {}", request.getName(), recruiterId);
-        User recruiter = getOrCreateRecruiter(recruiterId);
+        User recruiter = getRecruiterOrThrow(recruiterId);
 
         Workspace workspace = Workspace.builder()
                 .recruiter(recruiter)
@@ -59,14 +73,29 @@ public class WorkspaceService {
         return mapToWorkspaceResponse(saved);
     }
 
+    /**
+     * Retrieves all workspaces belonging to the authenticated recruiter.
+     *
+     * @param recruiterId UUID of the recruiter.
+     * @return List of WorkspaceResponse objects.
+     */
     @Transactional(readOnly = true)
     public List<WorkspaceResponse> getWorkspaces(UUID recruiterId) {
-        User recruiter = getOrCreateRecruiter(recruiterId);
+        User recruiter = getRecruiterOrThrow(recruiterId);
         return workspaceRepository.findAllByRecruiterId(recruiter.getId()).stream()
                 .map(this::mapToWorkspaceResponse)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves detailed workspace information, including enrolled candidates and assessment count.
+     *
+     * @param recruiterId UUID of the authenticated recruiter.
+     * @param workspaceId UUID of the workspace to fetch.
+     * @return WorkspaceDetailResponse with enrolled candidate summaries and statistics.
+     * @throws ResourceNotFoundException if workspace does not exist.
+     * @throws ForbiddenException        if recruiter does not own the workspace.
+     */
     @Transactional(readOnly = true)
     public WorkspaceDetailResponse getWorkspaceById(UUID recruiterId, UUID workspaceId) {
         Workspace workspace = getWorkspaceAndVerifyOwnership(recruiterId, workspaceId);
@@ -95,6 +124,14 @@ public class WorkspaceService {
                 .build();
     }
 
+    /**
+     * Updates an existing workspace's title, description, or status.
+     *
+     * @param recruiterId UUID of the authenticated recruiter.
+     * @param workspaceId UUID of the workspace to update.
+     * @param request     DTO with fields to update.
+     * @return Updated WorkspaceResponse.
+     */
     public WorkspaceResponse updateWorkspace(UUID recruiterId, UUID workspaceId, UpdateWorkspaceRequest request) {
         log.info("Updating workspace ID: {}", workspaceId);
         Workspace workspace = getWorkspaceAndVerifyOwnership(recruiterId, workspaceId);
@@ -113,6 +150,13 @@ public class WorkspaceService {
         return mapToWorkspaceResponse(updated);
     }
 
+    /**
+     * Archives a workspace, preventing new assessments from being scheduled.
+     *
+     * @param recruiterId UUID of the authenticated recruiter.
+     * @param workspaceId UUID of the workspace to archive.
+     * @return Updated WorkspaceResponse with ARCHIVED status.
+     */
     public WorkspaceResponse archiveWorkspace(UUID recruiterId, UUID workspaceId) {
         log.info("Archiving workspace ID: {}", workspaceId);
         Workspace workspace = getWorkspaceAndVerifyOwnership(recruiterId, workspaceId);
@@ -121,6 +165,12 @@ public class WorkspaceService {
         return mapToWorkspaceResponse(saved);
     }
 
+    /**
+     * Permanently deletes a workspace and cascades deletion across all related assessments and test results.
+     *
+     * @param recruiterId UUID of the authenticated recruiter.
+     * @param workspaceId UUID of the workspace to delete.
+     */
     public void deleteWorkspace(UUID recruiterId, UUID workspaceId) {
         log.info("Deleting workspace ID: {}", workspaceId);
         Workspace workspace = getWorkspaceAndVerifyOwnership(recruiterId, workspaceId);
@@ -149,6 +199,13 @@ public class WorkspaceService {
         log.info("Workspace ID: {} and all nested entities successfully deleted", workspaceId);
     }
 
+    /**
+     * Lists all candidates currently enrolled in a specific workspace.
+     *
+     * @param recruiterId UUID of the authenticated recruiter.
+     * @param workspaceId UUID of the workspace.
+     * @return List of WorkspaceCandidateItemResponse records.
+     */
     @Transactional(readOnly = true)
     public List<WorkspaceCandidateItemResponse> getCandidatesInWorkspace(UUID recruiterId, UUID workspaceId) {
         Workspace workspace = getWorkspaceAndVerifyOwnership(recruiterId, workspaceId);
@@ -167,27 +224,38 @@ public class WorkspaceService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Enrolls a candidate into a workspace by email, creating a user account if not yet registered.
+     *
+     * @param recruiterId UUID of the authenticated recruiter.
+     * @param workspaceId UUID of the workspace.
+     * @param request     DTO with candidate email and name.
+     * @return WorkspaceCandidateItemResponse containing enrolled candidate details.
+     */
     public WorkspaceCandidateItemResponse addCandidateToWorkspace(UUID recruiterId, UUID workspaceId, AddCandidateRequest request) {
         Workspace workspace = getWorkspaceAndVerifyOwnership(recruiterId, workspaceId);
 
         String email = request.getEmail().trim().toLowerCase();
-        log.info("Adding candidate '{}' to workspace ID: {}", email, workspaceId);
+        log.info("Enrolling candidate '{}' into workspace ID: {}", email, workspaceId);
+
         User candidate = userRepository.findByEmail(email)
                 .orElseGet(() -> {
                     String candidateName = request.getName() != null && !request.getName().trim().isEmpty()
                             ? request.getName().trim()
                             : email.split("@")[0];
+                    // Secure random initial password hash for invited candidates
+                    String secureInitPassword = passwordEncoder.encode(UUID.randomUUID().toString());
                     User newCandidate = User.builder()
                             .name(candidateName)
                             .email(email)
-                            .passwordHash("$2a$10$defaultMockPasswordHashForDevOnly")
+                            .passwordHash(secureInitPassword)
                             .role(Role.CANDIDATE)
+                            .authProvider(AuthProvider.LOCAL)
                             .build();
                     return userRepository.save(newCandidate);
                 });
 
         if (workspaceCandidateRepository.existsByWorkspaceIdAndCandidateId(workspace.getId(), candidate.getId())) {
-            // If already enrolled, return existing candidate info
             return WorkspaceCandidateItemResponse.builder()
                     .workspaceId(workspace.getId())
                     .candidate(CandidateDto.builder()
@@ -219,6 +287,13 @@ public class WorkspaceService {
                 .build();
     }
 
+    /**
+     * Removes an enrolled candidate from a workspace.
+     *
+     * @param recruiterId UUID of the authenticated recruiter.
+     * @param workspaceId UUID of the workspace.
+     * @param candidateId UUID of the candidate to remove.
+     */
     public void removeCandidateFromWorkspace(UUID recruiterId, UUID workspaceId, UUID candidateId) {
         log.info("Removing candidate ID: {} from workspace ID: {}", candidateId, workspaceId);
         Workspace workspace = getWorkspaceAndVerifyOwnership(recruiterId, workspaceId);
@@ -233,54 +308,44 @@ public class WorkspaceService {
         workspaceCandidateRepository.delete(workspaceCandidate);
     }
 
+    /**
+     * Verifies that a workspace exists and that the calling recruiter owns it.
+     *
+     * @param recruiterId UUID of the recruiter.
+     * @param workspaceId UUID of the workspace.
+     * @return The verified Workspace entity.
+     * @throws ResourceNotFoundException if the workspace is not found.
+     * @throws ForbiddenException        if the workspace is owned by a different recruiter.
+     */
     public Workspace getWorkspaceAndVerifyOwnership(UUID recruiterId, UUID workspaceId) {
-        if (workspaceId != null) {
-            Optional<Workspace> wsOpt = workspaceRepository.findById(workspaceId);
-            if (wsOpt.isPresent()) {
-                Workspace workspace = wsOpt.get();
-                if (recruiterId != null && !workspace.getRecruiter().getId().equals(recruiterId)) {
-                    log.warn("Recruiter ID {} does not match workspace recruiter {}, allowing access", recruiterId, workspace.getRecruiter().getId());
-                }
-                return workspace;
-            }
+        if (workspaceId == null) {
+            throw new ResourceNotFoundException("Workspace ID is required.");
         }
 
-        // Self-healing fallback: If designated workspaceId does not exist yet in DB, retrieve or create workspace for recruiter
-        User recruiter = getOrCreateRecruiter(recruiterId);
-        return workspaceRepository.findAll().stream()
-                .filter(w -> w.getRecruiter().getId().equals(recruiter.getId()))
-                .findFirst()
-                .orElseGet(() -> {
-                    Workspace defaultWs = Workspace.builder()
-                            .name("Default Engineering Workspace")
-                            .description("Auto-provisioned engineering assessment workspace")
-                            .status(WorkspaceStatus.ACTIVE)
-                            .recruiter(recruiter)
-                            .build();
-                    return workspaceRepository.save(defaultWs);
-                });
+        Workspace workspace = workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found with ID: " + workspaceId));
+
+        if (workspace.getRecruiter() == null || !workspace.getRecruiter().getId().equals(recruiterId)) {
+            throw new ForbiddenException("You do not have permission to manage this workspace.");
+        }
+
+        return workspace;
     }
 
-    public User getOrCreateRecruiter(UUID recruiterId) {
-        if (recruiterId != null) {
-            Optional<User> userOpt = userRepository.findById(recruiterId);
-            if (userOpt.isPresent()) {
-                return userOpt.get();
-            }
+    /**
+     * Retrieves the recruiter user entity or throws an UnauthorizedException if not found.
+     *
+     * @param recruiterId UUID of the recruiter.
+     * @return User entity with Role.RECRUITER.
+     * @throws UnauthorizedException if recruiter does not exist in the database.
+     */
+    public User getRecruiterOrThrow(UUID recruiterId) {
+        if (recruiterId == null) {
+            throw new UnauthorizedException("Recruiter authentication required.");
         }
-        return userRepository.findAll().stream()
+        return userRepository.findById(recruiterId)
                 .filter(u -> u.getRole() == Role.RECRUITER)
-                .findFirst()
-                .orElseGet(() -> {
-                    User defaultRecruiter = User.builder()
-                            .name("Demo Recruiter")
-                            .email("recruiter@example.com")
-                            .passwordHash("$2a$10$defaultMockPasswordHashForDevOnly")
-                            .role(Role.RECRUITER)
-                            .authProvider(com.example.backend.common.enums.AuthProvider.LOCAL)
-                            .build();
-                    return userRepository.save(defaultRecruiter);
-                });
+                .orElseThrow(() -> new UnauthorizedException("Recruiter account not found or invalid for ID: " + recruiterId));
     }
 
     private WorkspaceResponse mapToWorkspaceResponse(Workspace workspace) {

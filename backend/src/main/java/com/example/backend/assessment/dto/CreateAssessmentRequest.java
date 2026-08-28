@@ -21,6 +21,7 @@ public class CreateAssessmentRequest {
     @NotNull(message = "Candidate ID is required")
     private UUID candidateId;
 
+    @jakarta.validation.constraints.Size(max = 255, message = "Title must not exceed 255 characters")
     private String title;
 
     @NotBlank(message = "Repository URL is required")

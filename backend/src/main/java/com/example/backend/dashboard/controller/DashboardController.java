@@ -23,8 +23,11 @@ public class DashboardController {
 
     @GetMapping("/recruiter/dashboard")
     public ResponseEntity<ApiResponse<RecruiterDashboardResponse>> getRecruiterDashboard(
-            @RequestHeader(value = "X-Recruiter-Id", required = false) String recruiterIdHeader) {
-        UUID recruiterId = UUIDUtils.parseUuidOrNull(recruiterIdHeader);
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Not authenticated"));
+        }
+        UUID recruiterId = principal.getId();
         log.info("Fetching recruiter dashboard for ID: {}", recruiterId);
         RecruiterDashboardResponse response = dashboardService.getRecruiterDashboard(recruiterId);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -32,8 +35,11 @@ public class DashboardController {
 
     @GetMapping("/candidate/dashboard")
     public ResponseEntity<ApiResponse<CandidateDashboardResponse>> getCandidateDashboard(
-            @RequestHeader(value = "X-Candidate-Id", required = false) String candidateIdHeader) {
-        UUID candidateId = UUIDUtils.parseUuidOrNull(candidateIdHeader);
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Not authenticated"));
+        }
+        UUID candidateId = principal.getId();
         log.info("Fetching candidate dashboard for ID: {}", candidateId);
         CandidateDashboardResponse response = dashboardService.getCandidateDashboard(candidateId);
         return ResponseEntity.ok(ApiResponse.success(response));

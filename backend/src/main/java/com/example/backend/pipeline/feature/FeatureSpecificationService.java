@@ -16,10 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -63,8 +61,6 @@ public class FeatureSpecificationService {
         String constraints = null;
         String rawOutput = null;
 
-        boolean llmSucceeded = false;
-
         // 1. Attempt LLM Generation via Mistral AI with structured AST prompt
         if (mistralAiConfig != null && mistralAiConfig.isConfigured()) {
             try {
@@ -93,7 +89,6 @@ public class FeatureSpecificationService {
                 String httpMethod = extractHttpMethod(root, requestSpec);
 
                 if (!featureName.isEmpty() && (!description.isEmpty() || !requirements.isEmpty())) {
-                    llmSucceeded = true;
                     log.info("Successfully parsed Mistral AI Feature Specification: '{}' (Method: {}, Endpoint: {})",
                             featureName, httpMethod, endpoint);
 

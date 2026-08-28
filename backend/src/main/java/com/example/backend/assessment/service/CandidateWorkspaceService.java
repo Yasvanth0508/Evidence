@@ -21,7 +21,6 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
@@ -54,7 +53,7 @@ public class CandidateWorkspaceService {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assessment not found: " + assessmentId));
 
-        if (candidateId != null && assessment.getCandidate() != null && !assessment.getCandidate().getId().equals(candidateId)) {
+        if (assessment.getCandidate() == null || !assessment.getCandidate().getId().equals(candidateId)) {
             throw new ForbiddenException("Candidate is not authorized for this assessment");
         }
 
@@ -248,7 +247,7 @@ public class CandidateWorkspaceService {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assessment not found: " + assessmentId));
 
-        if (candidateId != null && assessment.getCandidate() != null && !assessment.getCandidate().getId().equals(candidateId)) {
+        if (assessment.getCandidate() == null || !assessment.getCandidate().getId().equals(candidateId)) {
             throw new ForbiddenException("Candidate is not authorized for this assessment");
         }
 

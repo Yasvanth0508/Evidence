@@ -12,6 +12,7 @@ import { SelectedCandidatesPage } from "@/pages/dashboard/SelectedCandidatesPage
 import { CandidateReport } from "@/pages/dashboard/CandidateReport";
 import { CandidateDashboard } from "@/pages/candidate/CandidateDashboard";
 import { AssessmentWorkspace } from "@/pages/assessment/AssessmentWorkspace";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 export const router = createBrowserRouter([
   {
@@ -28,7 +29,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/dashboard",
-    element: <DashboardLayout />,
+    element: (
+      <ProtectedRoute allowedRoles={["RECRUITER"]}>
+        <DashboardLayout />
+      </ProtectedRoute>
+    ),
     children: [
       {
         index: true,
@@ -66,15 +71,23 @@ export const router = createBrowserRouter([
   },
   {
     path: "/candidate",
-    element: <CandidateDashboard />,
+    element: <Navigate to="/candidate/dashboard" replace />,
   },
   {
     path: "/candidate/dashboard",
-    element: <CandidateDashboard />,
+    element: (
+      <ProtectedRoute allowedRoles={["CANDIDATE"]}>
+        <CandidateDashboard />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/assessment/:id",
-    element: <AssessmentWorkspace />,
+    element: (
+      <ProtectedRoute>
+        <AssessmentWorkspace />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "*",

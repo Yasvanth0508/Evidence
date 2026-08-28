@@ -10,6 +10,7 @@ import com.example.backend.common.enums.*;
 import com.example.backend.common.exception.ForbiddenException;
 import com.example.backend.common.exception.ResourceNotFoundException;
 import com.example.backend.pipeline.docker.DockerCommandExecutor;
+import com.example.backend.pipeline.docker.DockerUtils;
 import com.example.backend.workspace.dto.CandidateSummaryDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Files;
@@ -26,8 +26,11 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
+/**
+ * Service orchestrating automated black-box test evaluation, scoring,
+ * and result reporting for candidate assessment submissions.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -44,7 +47,14 @@ public class CandidateEvaluationService {
     private final DockerCommandExecutor dockerExecutor;
 
     /**
-     * Phase C.1 - C.4: Submit assessment, run automated test suite, compute score, persist evaluation report.
+     * Submits an assessment, triggers automated Maven packaging, boots an evaluation
+     * container, executes all black-box test cases, calculates weighted scores, and persists report.
+     *
+     * @param candidateId  UUID of the candidate submitting the assessment.
+     * @param assessmentId UUID of the assessment.
+     * @return SubmissionResponse with final status and timestamp.
+     * @throws ResourceNotFoundException if assessment does not exist.
+     * @throws ForbiddenException        if candidate is not authorized.
      */
     @Transactional
     public SubmissionResponse submitAssessment(UUID candidateId, UUID assessmentId) {
@@ -53,7 +63,7 @@ public class CandidateEvaluationService {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assessment not found: " + assessmentId));
 
-        if (candidateId != null && assessment.getCandidate() != null && !assessment.getCandidate().getId().equals(candidateId)) {
+        if (assessment.getCandidate() == null || !assessment.getCandidate().getId().equals(candidateId)) {
             throw new ForbiddenException("Candidate is not authorized for this assessment");
         }
 
@@ -63,7 +73,7 @@ public class CandidateEvaluationService {
         Instant now = Instant.now();
         long timeTakenSeconds = 0L;
         if (assessment.getScheduledStartAt() != null) {
-            timeTakenSeconds = Math.max(0, DurationBetween(assessment.getScheduledStartAt(), now));
+            timeTakenSeconds = Math.max(0, durationBetween(assessment.getScheduledStartAt(), now));
         }
 
         // Create / Update Submission
@@ -90,37 +100,37 @@ public class CandidateEvaluationService {
             Path backendMvn = Paths.get(".mvn").toAbsolutePath();
             try {
                 if (origMvn != null && Files.exists(origMvn)) {
-                    copyDirectorySimple(origMvn, mvnDir);
+                    DockerUtils.copyDirectorySimple(origMvn, mvnDir);
                 } else if (Files.exists(backendMvn)) {
-                    copyDirectorySimple(backendMvn, mvnDir);
+                    DockerUtils.copyDirectorySimple(backendMvn, mvnDir);
                 }
             } catch (Exception ex) {
                 log.warn("Could not copy fallback .mvn wrapper during evaluation: {}", ex.getMessage());
             }
         }
 
-        String mvnCmd = isWindows() ? "mvn.cmd" : "mvn";
+        String mvnCmd = DockerUtils.isWindows() ? "mvn.cmd" : "mvn";
         boolean hasWrapperProps = Files.exists(mvnDir.resolve("wrapper").resolve("maven-wrapper.properties"));
         if (hasWrapperProps && Files.exists(workspaceDir.resolve("mvnw.cmd"))) {
-            mvnCmd = isWindows() ? "mvnw.cmd" : "./mvnw";
+            mvnCmd = DockerUtils.isWindows() ? "mvnw.cmd" : "./mvnw";
         } else if (hasWrapperProps && Files.exists(workspaceDir.resolve("mvnw"))) {
             mvnCmd = "./mvnw";
         }
 
-        DockerCommandExecutor.ProcessResult packageResult = dockerExecutor.executeCommand(
+        dockerExecutor.executeCommand(
                 workingDir, 120, mvnCmd, "package", "-DskipTests", "-Dcheckstyle.skip=true"
         );
 
-        boolean jarExists = findJarFile(targetDir).isPresent();
+        boolean jarExists = DockerUtils.findJarFile(targetDir).isPresent();
         if (!jarExists) {
             Path classesDir = targetDir.resolve("classes");
             if (Files.exists(classesDir)) {
                 try {
                     Files.createDirectories(targetDir);
                     String javaHome = System.getProperty("java.home");
-                    String jarExe = javaHome != null ? javaHome + File.separator + "bin" + File.separator + (isWindows() ? "jar.exe" : "jar") : "jar";
+                    String jarExe = javaHome != null ? javaHome + File.separator + "bin" + File.separator + (DockerUtils.isWindows() ? "jar.exe" : "jar") : "jar";
                     dockerExecutor.executeCommand(workingDir, 30, jarExe, "-cf", "target/app.jar", "-C", "target/classes", ".");
-                    jarExists = findJarFile(targetDir).isPresent();
+                    jarExists = DockerUtils.findJarFile(targetDir).isPresent();
                 } catch (Exception ignored) {}
             }
         }
@@ -133,7 +143,7 @@ public class CandidateEvaluationService {
         String evalContainer = "evidence-eval-" + assessmentId.toString().substring(0, 8);
 
         Process evalProcess = null;
-        boolean dockerAvailable = isDockerDaemonRunning();
+        boolean dockerAvailable = DockerUtils.isDockerDaemonRunning(dockerExecutor);
 
         // 2. Launch Container / Process for Black-Box HTTP Testing
         if (jarExists) {
@@ -141,11 +151,11 @@ public class CandidateEvaluationService {
                 dockerExecutor.executeCommand(workingDir, 120, "docker", "build", "-t", evalTag, ".");
                 dockerExecutor.executeCommand(workingDir, 30, "docker", "run", "-d", "--name", evalContainer, "-p", evalPort + ":8080", evalTag);
             } else {
-                Optional<Path> jarPath = findJarFile(targetDir);
+                Optional<Path> jarPath = DockerUtils.findJarFile(targetDir);
                 if (jarPath.isPresent()) {
                     try {
                         String javaHome = System.getProperty("java.home");
-                        String javaExe = javaHome != null ? javaHome + File.separator + "bin" + File.separator + (isWindows() ? "java.exe" : "java") : "java";
+                        String javaExe = javaHome != null ? javaHome + File.separator + "bin" + File.separator + (DockerUtils.isWindows() ? "java.exe" : "java") : "java";
                         ProcessBuilder pb = new ProcessBuilder(
                                 javaExe, "-jar", jarPath.get().toAbsolutePath().toString(),
                                 "--server.port=" + evalPort
@@ -274,14 +284,18 @@ public class CandidateEvaluationService {
     }
 
     /**
-     * Phase C.5: Safe Candidate Result View.
+     * Retrieves the candidate-safe result view (hiding test implementation details).
+     *
+     * @param candidateId  UUID of the candidate.
+     * @param assessmentId UUID of the assessment.
+     * @return CandidateResultResponse containing summary score and test counts.
      */
     @Transactional(readOnly = true)
     public CandidateResultResponse getCandidateResult(UUID candidateId, UUID assessmentId) {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assessment not found: " + assessmentId));
 
-        if (candidateId != null && assessment.getCandidate() != null && !assessment.getCandidate().getId().equals(candidateId)) {
+        if (assessment.getCandidate() == null || !assessment.getCandidate().getId().equals(candidateId)) {
             throw new ForbiddenException("Candidate is not authorized for this assessment");
         }
 
@@ -298,66 +312,74 @@ public class CandidateEvaluationService {
                 .totalTests(report.getTotalTests())
                 .passedTests(report.getPassedTests())
                 .failedTests(report.getFailedTests())
-                .buildStatus(report.getBuildStatus())
-                .applicationStatus(report.getApplicationStatus())
                 .timeTakenSeconds(report.getTimeTakenSeconds())
-                .evaluatedAt(report.getEvaluatedAt())
+                .submittedAt(submission.getSubmittedAt())
                 .build();
     }
 
     /**
-     * Phase D.2: Recruiter Detailed Report View.
+     * Retrieves the comprehensive recruiter report, including candidate info, time taken,
+     * and scoring breakdowns.
+     *
+     * @param recruiterId  UUID of the requesting recruiter.
+     * @param assessmentId UUID of the assessment.
+     * @return RecruiterReportResponse with detailed evaluation metrics.
      */
     @Transactional(readOnly = true)
     public RecruiterReportResponse getRecruiterReport(UUID recruiterId, UUID assessmentId) {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assessment not found: " + assessmentId));
 
-        if (recruiterId != null && assessment.getWorkspace() != null && assessment.getWorkspace().getRecruiter() != null
-                && !assessment.getWorkspace().getRecruiter().getId().equals(recruiterId)) {
+        if (assessment.getWorkspace() == null || assessment.getWorkspace().getRecruiter() == null
+                || !assessment.getWorkspace().getRecruiter().getId().equals(recruiterId)) {
             throw new ForbiddenException("Recruiter is not authorized for this assessment");
         }
 
-        Submission submission = submissionRepository.findByAssessmentId(assessmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Submission not found for assessment: " + assessmentId));
+        var candidate = assessment.getCandidate();
+        CandidateSummaryDto candidateDto = CandidateSummaryDto.builder()
+                .id(candidate != null ? candidate.getId() : null)
+                .name(candidate != null ? candidate.getName() : "Unknown")
+                .email(candidate != null ? candidate.getEmail() : "Unknown")
+                .addedAt(candidate != null ? candidate.getCreatedAt() : null)
+                .build();
 
-        EvaluationReport report = evaluationReportRepository.findBySubmissionId(submission.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Evaluation report not found"));
+        Optional<Submission> submissionOpt = submissionRepository.findByAssessmentId(assessmentId);
+        Optional<EvaluationReport> reportOpt = submissionOpt.flatMap(s -> evaluationReportRepository.findBySubmissionId(s.getId()));
 
-        CandidateSummaryDto candidateDto = null;
-        if (assessment.getCandidate() != null) {
-            candidateDto = CandidateSummaryDto.builder()
-                    .id(assessment.getCandidate().getId())
-                    .name(assessment.getCandidate().getName())
-                    .email(assessment.getCandidate().getEmail())
-                    .build();
-        }
+        BigDecimal score = reportOpt.map(EvaluationReport::getScore).orElse(BigDecimal.ZERO);
+        int totalTests = reportOpt.map(EvaluationReport::getTotalTests).orElse(0);
+        int passedTests = reportOpt.map(EvaluationReport::getPassedTests).orElse(0);
+        int failedTests = reportOpt.map(EvaluationReport::getFailedTests).orElse(0);
+        long timeTaken = reportOpt.map(EvaluationReport::getTimeTakenSeconds).orElse(0L);
+        Instant evaluatedAt = reportOpt.map(EvaluationReport::getEvaluatedAt).orElse(assessment.getUpdatedAt());
 
         return RecruiterReportResponse.builder()
                 .assessmentId(assessmentId)
                 .candidate(candidateDto)
-                .score(report.getScore())
-                .totalTests(report.getTotalTests())
-                .passedTests(report.getPassedTests())
-                .failedTests(report.getFailedTests())
-                .buildStatus(report.getBuildStatus())
-                .applicationStatus(report.getApplicationStatus())
-                .timeTakenSeconds(report.getTimeTakenSeconds())
+                .score(score)
+                .totalTests(totalTests)
+                .passedTests(passedTests)
+                .failedTests(failedTests)
+                .timeTakenSeconds(timeTaken)
                 .status(assessment.getStatus())
-                .evaluatedAt(report.getEvaluatedAt())
+                .evaluatedAt(evaluatedAt)
                 .build();
     }
 
     /**
-     * Phase D.3: Recruiter Granular Test Results Breakdown.
+     * Retrieves the granular per-test-case results breakdown for recruiters.
+     *
+     * @param recruiterId  UUID of the recruiter.
+     * @param assessmentId UUID of the assessment.
+     * @return List of RecruiterTestResultItemDto records.
      */
     @Transactional(readOnly = true)
     public List<RecruiterTestResultItemDto> getRecruiterTestResults(UUID recruiterId, UUID assessmentId) {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assessment not found: " + assessmentId));
 
-        if (recruiterId != null && assessment.getWorkspace() != null && assessment.getWorkspace().getRecruiter() != null
-                && !assessment.getWorkspace().getRecruiter().getId().equals(recruiterId)) {
+        if (assessment.getWorkspace() == null || assessment.getWorkspace().getRecruiter() == null
+                || !assessment.getWorkspace().getRecruiter().getId().equals(recruiterId)) {
             throw new ForbiddenException("Recruiter is not authorized for this assessment");
         }
 
@@ -382,26 +404,6 @@ public class CandidateEvaluationService {
         ).collect(Collectors.toList());
     }
 
-    private void copyDirectorySimple(Path source, Path destination) throws IOException {
-        Files.walkFileTree(source, new java.nio.file.SimpleFileVisitor<>() {
-            @Override
-            public java.nio.file.FileVisitResult preVisitDirectory(Path dir, java.nio.file.attribute.BasicFileAttributes attrs) throws IOException {
-                Path targetDir = destination.resolve(source.relativize(dir));
-                if (!Files.exists(targetDir)) {
-                    Files.createDirectories(targetDir);
-                }
-                return java.nio.file.FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public java.nio.file.FileVisitResult visitFile(Path file, java.nio.file.attribute.BasicFileAttributes attrs) throws IOException {
-                Path targetFile = destination.resolve(source.relativize(file));
-                Files.copy(file, targetFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                return java.nio.file.FileVisitResult.CONTINUE;
-            }
-        });
-    }
-
     private boolean waitForPort(int port, int timeoutSeconds) {
         long deadline = System.currentTimeMillis() + (timeoutSeconds * 1000L);
         while (System.currentTimeMillis() < deadline) {
@@ -417,26 +419,7 @@ public class CandidateEvaluationService {
         return false;
     }
 
-    private boolean isDockerDaemonRunning() {
-        DockerCommandExecutor.ProcessResult result = dockerExecutor.executeCommand(null, 5, "docker", "info");
-        return result.isSuccess();
-    }
-
-    private Optional<Path> findJarFile(Path targetDir) {
-        if (!Files.exists(targetDir)) return Optional.empty();
-        try (Stream<Path> stream = Files.list(targetDir)) {
-            return stream.filter(p -> p.getFileName().toString().endsWith(".jar") && !p.getFileName().toString().startsWith("original-"))
-                    .findFirst();
-        } catch (IOException e) {
-            return Optional.empty();
-        }
-    }
-
-    private boolean isWindows() {
-        return System.getProperty("os.name", "").toLowerCase().contains("win");
-    }
-
-    private long DurationBetween(Instant start, Instant end) {
+    private long durationBetween(Instant start, Instant end) {
         return java.time.Duration.between(start, end).getSeconds();
     }
 }

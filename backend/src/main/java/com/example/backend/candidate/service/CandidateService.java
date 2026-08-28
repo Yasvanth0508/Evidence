@@ -76,7 +76,7 @@ public class CandidateService {
     }
 
     public List<CandidateAssessmentItemResponse> getCandidateAssessmentsForRecruiter(UUID recruiterId, UUID candidateId) {
-        User recruiter = workspaceService.getOrCreateRecruiter(recruiterId);
+        User recruiter = workspaceService.getRecruiterOrThrow(recruiterId);
 
         userRepository.findById(candidateId)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found with id: " + candidateId, "CANDIDATE_NOT_FOUND"));

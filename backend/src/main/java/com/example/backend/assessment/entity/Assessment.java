@@ -11,7 +11,11 @@ import lombok.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "assessments")
+@Table(name = "assessments", indexes = {
+        @Index(name = "idx_asmt_workspace", columnList = "workspace_id"),
+        @Index(name = "idx_asmt_candidate", columnList = "candidate_id"),
+        @Index(name = "idx_asmt_status", columnList = "status")
+})
 @Data
 @EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
@@ -27,7 +31,7 @@ public class Assessment extends BaseEntity {
     @JoinColumn(name = "candidate_id", nullable = false)
     private User candidate;
 
-    @Column(name = "title", length = 255)
+    @Column(name = "title", nullable = false, length = 255)
     private String title;
 
     @Column(name = "repository_url", nullable = false, columnDefinition = "TEXT")

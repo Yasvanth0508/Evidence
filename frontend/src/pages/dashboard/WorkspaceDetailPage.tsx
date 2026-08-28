@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 
 export const WorkspaceDetailPage = () => {
-  const { workspaceId = "ws-iit-bombay" } = useParams<{ workspaceId: string }>();
+  const { workspaceId = "" } = useParams<{ workspaceId: string }>();
   const navigate = useNavigate();
   const {
     getWorkspaceById,
@@ -145,6 +145,8 @@ export const WorkspaceDetailPage = () => {
                 durationMinutes: asmt.durationMinutes || 90,
                 scheduledDate: asmt.scheduledStartAt ? new Date(asmt.scheduledStartAt).toLocaleDateString() : "Today",
                 scheduledTime: asmt.scheduledStartAt ? new Date(asmt.scheduledStartAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "10:00 AM",
+                scheduledStartAt: asmt.scheduledStartAt,
+                scheduledEndAt: asmt.scheduledEndAt,
               });
             }
           });

@@ -11,25 +11,16 @@ export const apiClient = axios.create({
   timeout: 90000,
 });
 
-const isUuid = (id?: string) =>
-  Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
-
-// Request interceptor: attach User ID & Role headers for backend identification
+// Request interceptor: attach Authorization Bearer JWT & fallback headers
 apiClient.interceptors.request.use(
   (config) => {
-    const user = useAuthStore.getState().user;
-    if (user) {
-      if (user.role === "RECRUITER" && isUuid(user.id)) {
-        config.headers["X-Recruiter-Id"] = user.id;
-      }
-      if (user.role === "CANDIDATE" && isUuid(user.id)) {
-        config.headers["X-Candidate-Id"] = user.id;
-      }
-      if (isUuid(user.id)) {
-        config.headers["X-User-Id"] = user.id;
-      }
-      config.headers["X-User-Role"] = user.role;
+    const { token } = useAuthStore.getState();
+
+    if (token) {
+      config.headers["Authorization"] = `Bearer ${token}`;
     }
+
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -38,7 +29,6 @@ apiClient.interceptors.request.use(
 // Response interceptor: unwrap backend ApiResponse<T> or handle errors
 apiClient.interceptors.response.use(
   (response) => {
-    // If backend returns ApiResponse envelope, return the .data payload if present
     if (response.data && typeof response.data === "object" && "data" in response.data) {
       return response.data.data;
     }
@@ -49,7 +39,11 @@ apiClient.interceptors.response.use(
       error.response?.data?.message ||
       error.message ||
       "An unexpected network error occurred.";
-    console.error(`[API Error] ${error.config?.url}:`, message);
+
+    if (error.response?.status === 401 && !error.config?.url?.includes("/auth/login")) {
+      console.warn("[API 401 Unauthorized] Session expired or invalid.");
+    }
+
     return Promise.reject(new Error(message));
   }
 );

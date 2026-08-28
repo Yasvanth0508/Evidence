@@ -12,7 +12,6 @@ import com.example.backend.common.enums.Difficulty;
 import com.example.backend.common.enums.Role;
 import com.example.backend.common.enums.TestType;
 import com.example.backend.workspace.entity.Workspace;
-import com.example.backend.workspace.repository.WorkspaceCandidateRepository;
 import com.example.backend.workspace.repository.WorkspaceRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,19 +51,10 @@ public class ApiEndpointsAndDatabaseVerificationTest {
     private WorkspaceRepository workspaceRepository;
 
     @Autowired
-    private WorkspaceCandidateRepository workspaceCandidateRepository;
-
-    @Autowired
     private AssessmentRepository assessmentRepository;
 
     @Autowired
     private AssessmentWorkspaceRepository assessmentWorkspaceRepository;
-
-    @Autowired
-    private RepositoryAnalysisRepository repositoryAnalysisRepository;
-
-    @Autowired
-    private FeatureSpecificationRepository featureSpecificationRepository;
 
     @Autowired
     private TestCaseRepository testCaseRepository;
@@ -74,9 +64,6 @@ public class ApiEndpointsAndDatabaseVerificationTest {
 
     @Autowired
     private EvaluationReportRepository evaluationReportRepository;
-
-    @Autowired
-    private TestResultRepository testResultRepository;
 
     private User recruiter;
     private User candidate;

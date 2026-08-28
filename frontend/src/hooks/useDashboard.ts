@@ -36,17 +36,17 @@ export const useRecruiterDashboard = () => {
           sparkline: [{ val: 50 }, { val: 45 }, { val: 40 }],
         },
         assessmentStatusDistribution: [
-          { name: "Completed", count: stats.completedAssessments || 0, percentage: 60, color: "#10B981" },
-          { name: "In Progress", count: stats.activeAssessments || 0, percentage: 30, color: "#F05323" },
-          { name: "Scheduled", count: 0, percentage: 10, color: "#3B82F6" },
+          { name: "Completed", count: stats.completedAssessments || 0, percentage: stats.totalAssessments ? Math.round(((stats.completedAssessments || 0) / stats.totalAssessments) * 100) : 0, color: "#10B981" },
+          { name: "Active", count: stats.activeAssessments || 0, percentage: stats.totalAssessments ? Math.round(((stats.activeAssessments || 0) / stats.totalAssessments) * 100) : 0, color: "#F05323" },
+          { name: "Scheduled", count: Math.max(0, (stats.totalAssessments || 0) - (stats.completedAssessments || 0) - (stats.activeAssessments || 0)), percentage: 0, color: "#3B82F6" },
         ],
         mostFailedBugCategories: [
           { category: "Business Logic Bugs", failureRate: 25, count: 12, color: "#EF4444" },
           { category: "Data Flow Bugs", failureRate: 15, count: 8, color: "#3B82F6" },
           { category: "Syntax / Structural Bugs", failureRate: 5, count: 2, color: "#F59E0B" },
         ],
-        recentAssessments: reportsRes.reports && reportsRes.reports.length > 0
-          ? reportsRes.reports.map((r) => ({
+        recentAssessments: ((reportsRes?.content || reportsRes?.reports) && (reportsRes?.content || reportsRes?.reports)!.length > 0)
+          ? (reportsRes.content || reportsRes.reports)!.map((r) => ({
               id: r.assessmentId,
               candidateName: r.candidateName,
               candidateEmail: r.candidateEmail,

@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuthStore, DEFAULT_RECRUITER, DEFAULT_CANDIDATE } from "@/store/authStore";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import { authService } from "@/services/authService";
+import { useAuthStore, UserRole } from "@/store/authStore";
 import {
   Mail,
   Lock,
@@ -12,94 +14,122 @@ import {
   ArrowRight,
   ShieldCheck,
   Loader2,
-  Briefcase,
-  Code2,
+  Sparkles,
 } from "lucide-react";
-import {
-  GithubIcon,
-} from "@/components/ui/social-icons";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const loginToStore = useAuthStore((state) => state.login);
 
-  const roleParam = searchParams.get("role");
-  const [selectedRole, setSelectedRole] = useState<"RECRUITER" | "CANDIDATE">(
-    roleParam === "candidate" ? "CANDIDATE" : "RECRUITER"
-  );
-
-  const [email, setEmail] = useState(
-    roleParam === "candidate" ? "arun@gmail.com" : "recruiter@example.com"
-  );
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Sync role changes with default demo emails
-  useEffect(() => {
-    if (roleParam === "candidate") {
-      setSelectedRole("CANDIDATE");
-      setEmail("arun@gmail.com");
-    } else if (roleParam === "recruiter") {
-      setSelectedRole("RECRUITER");
-      setEmail("recruiter@example.com");
+  const redirectByRole = (role: "RECRUITER" | "CANDIDATE") => {
+    const fromPath = (location.state as any)?.from?.pathname;
+    if (fromPath && !fromPath.includes("/login") && !fromPath.includes("/signup")) {
+      navigate(fromPath, { replace: true });
+      return;
     }
-  }, [roleParam]);
 
-  const handleRoleChange = (newRole: "RECRUITER" | "CANDIDATE") => {
-    setSelectedRole(newRole);
-    setSearchParams({ role: newRole.toLowerCase() });
-    setEmail(newRole === "CANDIDATE" ? "arun@gmail.com" : "recruiter@example.com");
-    setErrorMessage("");
-  };
-
-  const handleDirectRecruiterLogin = () => {
-    loginToStore(DEFAULT_RECRUITER, "jwt-session-token-1d453ede-caab-4729-8072-9b6e3c600ba3");
-    navigate("/dashboard");
-  };
-
-  const handleDirectCandidateLogin = () => {
-    loginToStore(DEFAULT_CANDIDATE, "jwt-session-token-52127120-fa9e-43a1-958a-6a63ef9af8c5");
-    navigate("/candidate");
+    if (role === "RECRUITER") {
+      navigate("/dashboard", { replace: true });
+    } else {
+      navigate("/candidate/dashboard", { replace: true });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
+
+    if (!email.trim()) {
+      setErrorMessage("Please enter your email address.");
+      return;
+    }
+    if (!password) {
+      setErrorMessage("Please enter your password.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await authService.login(email.trim().toLowerCase(), password);
+
+      if (response && response.token) {
+        loginToStore(
+          {
+            id: response.id,
+            name: response.name,
+            email: response.email,
+            role: response.role,
+            authProvider: response.authProvider || "LOCAL",
+          },
+          response.token
+        );
+
+        redirectByRole(response.role);
+      } else {
+        throw new Error("Authentication failed: No token received from server.");
+      }
+    } catch (err: any) {
+      console.warn("Login failed:", err);
+      setErrorMessage(
+        err?.response?.data?.message ||
+        err?.message ||
+        "Invalid email or password. Please check your credentials."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const [pendingGoogleCredential, setPendingGoogleCredential] = useState<string | null>(null);
+
+  const handleGoogleSuccess = async (credential: string, selectedRole?: UserRole) => {
     setIsLoading(true);
     setErrorMessage("");
 
     try {
-      if (selectedRole === "CANDIDATE") {
-        handleDirectCandidateLogin();
-      } else {
-        handleDirectRecruiterLogin();
+      const response = await authService.googleAuth(credential, selectedRole);
+
+      if (response && response.token) {
+        setPendingGoogleCredential(null);
+        loginToStore(
+          {
+            id: response.id,
+            name: response.name,
+            email: response.email,
+            role: response.role,
+            authProvider: response.authProvider || "GOOGLE",
+          },
+          response.token
+        );
+
+        redirectByRole(response.role);
       }
-    } catch {
-      if (selectedRole === "CANDIDATE") {
-        handleDirectCandidateLogin();
+    } catch (err: any) {
+      console.warn("Google authentication failed:", err);
+      const msg = err?.response?.data?.message || err?.message || "";
+      if (msg.includes("ROLE_REQUIRED") || msg.includes("Please select whether you are a Candidate or Recruiter")) {
+        setPendingGoogleCredential(credential);
       } else {
-        handleDirectRecruiterLogin();
+        setErrorMessage(
+          err?.response?.data?.message ||
+          "Google sign-in failed. Please try again or use email login."
+        );
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSocialLogin = async (_provider: string) => {
-    setIsLoading(true);
-    try {
-      if (selectedRole === "CANDIDATE") {
-        handleDirectCandidateLogin();
-      } else {
-        handleDirectRecruiterLogin();
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-between font-sans">
@@ -124,8 +154,8 @@ export const LoginPage = () => {
           </nav>
 
           <div className="flex items-center space-x-3">
-            <Link to={`/signup?role=${selectedRole.toLowerCase()}`}>
-              <Button size="sm" className="font-semibold shadow-xs bg-[#F05323] hover:bg-[#d94417]">
+            <Link to="/signup">
+              <Button size="sm" className="font-semibold shadow-xs bg-[#F05323] hover:bg-[#d94417] text-white">
                 Create Account
               </Button>
             </Link>
@@ -133,56 +163,52 @@ export const LoginPage = () => {
         </div>
       </header>
 
-      {/* 2. Main Login Card */}
+      {/* 2. Main Unified Login Card */}
       <main className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-6">
           <div className="bg-white border border-gray-200/90 rounded-3xl p-8 sm:p-10 shadow-sm">
-            {/* Role Switcher Tabs */}
-            <div className="flex p-1 bg-gray-100/80 rounded-2xl mb-6">
-              <button
-                type="button"
-                onClick={() => handleRoleChange("RECRUITER")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-xl transition-all ${
-                  selectedRole === "RECRUITER"
-                    ? "bg-white text-[#F05323] shadow-xs"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <Briefcase className="w-3.5 h-3.5" />
-                Recruiter Portal
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRoleChange("CANDIDATE")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-xl transition-all ${
-                  selectedRole === "CANDIDATE"
-                    ? "bg-white text-emerald-600 shadow-xs"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <Code2 className="w-3.5 h-3.5" />
-                Candidate Portal
-              </button>
-            </div>
-
-            {/* Title */}
-            <div className="text-center space-y-1.5 mb-6">
+            {/* Title & Subtitle */}
+            <div className="text-center space-y-1.5 mb-8">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-[#F05323] border border-orange-200/60 mb-2">
+                <Sparkles className="w-3.5 h-3.5 text-[#F05323]" />
+                Evidence Unified Access
+              </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
-                {selectedRole === "RECRUITER" ? "Recruiter Sign In" : "Candidate Sign In"}
+                Welcome Back
               </h1>
               <p className="text-xs sm:text-sm text-gray-500">
-                {selectedRole === "RECRUITER"
-                  ? "Access your workspaces, candidates, and evaluation reports"
-                  : "Sign in to access your assigned scheduled assessments"}
+                Sign in to your account to continue to your dashboard.
               </p>
             </div>
 
+            {/* Error Message Alert */}
             {errorMessage && (
               <div className="mb-6 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
                 {errorMessage}
               </div>
             )}
 
+            {/* Google OAuth Button */}
+            <div className="mb-6">
+              <GoogleAuthButton
+                text="continue_with"
+                disabled={isLoading}
+                onSuccess={handleGoogleSuccess}
+                onError={(err) => setErrorMessage(err)}
+              />
+            </div>
+
+            {/* Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center text-xs text-gray-500">
+                <span className="bg-white px-3 text-gray-400 font-medium">or continue with email</span>
+              </div>
+            </div>
+
+            {/* Email / Password Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Email Address */}
               <div className="space-y-1.5">
@@ -244,32 +270,14 @@ export const LoginPage = () => {
                 </span>
               </div>
 
-              {/* Quick Direct Buttons */}
-              <div className="grid grid-cols-2 gap-2 pt-1 pb-1">
-                <button
-                  type="button"
-                  onClick={handleDirectRecruiterLogin}
-                  className="py-2.5 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[#F05323] text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs"
-                >
-                  <Briefcase className="w-3.5 h-3.5" />
-                  Recruiter (Demo)
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDirectCandidateLogin}
-                  className="py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs"
-                >
-                  <Code2 className="w-3.5 h-3.5" />
-                  Candidate (Arun)
-                </button>
-              </div>
+
 
               {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={isLoading}
                 size="lg"
-                className="w-full font-semibold gap-2 shadow-xs mt-2 bg-[#F05323] hover:bg-[#d94417]"
+                className="w-full font-bold gap-2 shadow-xs mt-3 bg-[#F05323] hover:bg-[#d94417] text-white cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -277,66 +285,17 @@ export const LoginPage = () => {
                   </>
                 ) : (
                   <>
-                    Sign In to {selectedRole === "RECRUITER" ? "Recruiter Dashboard" : "Candidate Portal"}{" "}
-                    <ArrowRight className="w-4 h-4" />
+                    Sign In <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </Button>
             </form>
 
-            {/* Social Logins Divider */}
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
-              </div>
-              <div className="relative flex justify-center text-xs text-gray-500">
-                <span className="bg-white px-3 text-gray-400">or sign in with</span>
-              </div>
-            </div>
-
-            {/* Google & GitHub Buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => handleSocialLogin("Google")}
-                className="flex items-center justify-center gap-2 h-10 px-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 text-xs font-semibold text-gray-700 transition-colors shadow-2xs"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                  />
-                </svg>
-                Google
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSocialLogin("GitHub")}
-                className="flex items-center justify-center gap-2 h-10 px-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 text-xs font-semibold text-gray-700 transition-colors shadow-2xs"
-              >
-                <GithubIcon className="w-4 h-4 text-gray-900" />
-                GitHub
-              </button>
-            </div>
-
             {/* Switch to Signup */}
             <div className="mt-8 text-center text-xs text-gray-500">
               Don't have an account?{" "}
               <Link
-                to={`/signup?role=${selectedRole.toLowerCase()}`}
+                to="/signup"
                 className="font-bold text-[#F05323] hover:underline"
               >
                 Create an account
@@ -347,15 +306,51 @@ export const LoginPage = () => {
           {/* Security Badge */}
           <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
             <ShieldCheck className="w-4 h-4 text-gray-400" />
-            <span>Secured with role-based session authorization</span>
+            <span>Secured with cryptographic JWT role-based access</span>
           </div>
         </div>
       </main>
 
+      {/* Role Selection Modal for New Google Users */}
+      {pendingGoogleCredential && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-100 space-y-4 animate-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-extrabold text-gray-900 text-center">
+              Complete Your Registration
+            </h3>
+            <p className="text-xs text-gray-500 text-center">
+              It looks like you are new here! Please select your role to continue with Google.
+            </p>
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              <button
+                onClick={() => handleGoogleSuccess(pendingGoogleCredential, "CANDIDATE")}
+                className="p-3 rounded-2xl border border-gray-200 hover:border-emerald-500 bg-gray-50/50 hover:bg-emerald-50/40 transition-all text-center"
+              >
+                <h4 className="font-bold text-xs text-gray-900">Candidate</h4>
+              </button>
+              <button
+                onClick={() => handleGoogleSuccess(pendingGoogleCredential, "RECRUITER")}
+                className="p-3 rounded-2xl border border-gray-200 hover:border-[#F05323] bg-gray-50/50 hover:bg-orange-50/40 transition-all text-center"
+              >
+                <h4 className="font-bold text-xs text-gray-900">Recruiter</h4>
+              </button>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full mt-2"
+              onClick={() => setPendingGoogleCredential(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* 3. Footer */}
       <footer className="bg-white border-t border-gray-200 py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-400 gap-4">
-          <p>© 2026 EVIDENCE. Recruiter & Candidate Technical Assessment Platform.</p>
+          <p>© 2026 EVIDENCE. Unified Technical Assessment Platform.</p>
           <div className="flex space-x-6">
             <Link to="/#overview" className="hover:text-gray-600">Home</Link>
             <Link to="/#how-it-works" className="hover:text-gray-600">How It Works</Link>

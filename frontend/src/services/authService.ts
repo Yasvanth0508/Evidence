@@ -1,30 +1,46 @@
 import { apiClient } from "@/lib/apiClient";
-import { User, UserRole } from "@/types";
+import { UserRole } from "@/store/authStore";
 
 export interface AuthResponseData {
-  user: User;
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
   token: string;
+  authProvider?: "LOCAL" | "GOOGLE" | "GITHUB";
 }
 
 export const authService = {
-  login: async (
-    email: string,
-    password: string,
-    role: UserRole
-  ): Promise<AuthResponseData> => {
-    const endpoint =
-      role === "CANDIDATE" ? "/auth/candidate/login" : "/auth/recruiter/login";
-    return await apiClient.post(endpoint, { email, password });
+  /**
+   * Unified single sign-in for all user roles.
+   */
+  login: async (email: string, password: string): Promise<AuthResponseData> => {
+    return await apiClient.post("/auth/login", { email, password });
   },
 
+  /**
+   * Unified registration endpoint with user-selected role.
+   */
   signup: async (
     name: string,
     email: string,
     password: string,
     role: UserRole
   ): Promise<AuthResponseData> => {
-    const endpoint =
-      role === "CANDIDATE" ? "/auth/candidate/signup" : "/auth/recruiter/signup";
-    return await apiClient.post(endpoint, { name, email, password });
+    return await apiClient.post(`/auth/signup?role=${role}`, { name, email, password });
+  },
+
+  /**
+   * Google OAuth2 ID Token login / signup endpoint.
+   */
+  googleAuth: async (credential: string, role?: UserRole): Promise<AuthResponseData> => {
+    return await apiClient.post("/auth/google", { credential, role });
+  },
+
+  /**
+   * Fetches the current session profile from backend JWT.
+   */
+  getMe: async (): Promise<AuthResponseData> => {
+    return await apiClient.get("/auth/me");
   },
 };

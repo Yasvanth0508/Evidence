@@ -1,30 +1,118 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useHRStore } from "@/store/hrStore";
+import { candidateService, CandidateProfile } from "@/services/candidateService";
+import { reportService, ReportItem } from "@/services/reportService";
+import { workspaceService, WorkspaceResponse } from "@/services/workspaceService";
 import { Input } from "@/components/ui/input";
 import {
   UserCheck2,
   Search,
   Award,
-  Calendar,
   Building2,
   ExternalLink,
-  Mail,
   Filter,
   CheckCircle2,
   Clock,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 
-export const SelectedCandidatesPage = () => {
-  const { getAllSelectedCandidates, workspaces } = useHRStore();
-  const selectedCandidates = getAllSelectedCandidates();
+interface DisplayCandidate {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  workspaceName: string;
+  score?: number;
+  status: string;
+  assessmentId?: string;
+  selectionStatus: "SELECTED" | "SHORTLISTED" | "OFFER_EXTENDED";
+}
 
+export const SelectedCandidatesPage = () => {
+  const [candidates, setCandidates] = useState<DisplayCandidate[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [workspaceFilter, setWorkspaceFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
 
-  const filteredCandidates = selectedCandidates.filter((cand) => {
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadData() {
+      setIsLoading(true);
+      try {
+        const [candList, reportsRes, wsList] = await Promise.all([
+          candidateService.getAllCandidates().catch(() => []),
+          reportService.getReports({ page: 0, size: 100 }).catch(() => ({ content: [], reports: [] } as any)),
+          workspaceService.getWorkspaces().catch(() => []),
+        ]);
+
+        if (!isMounted) return;
+
+        if (Array.isArray(wsList)) {
+          setWorkspaces(wsList);
+        }
+
+        const reports: ReportItem[] = reportsRes?.content || reportsRes?.reports || [];
+
+        // Build list of candidates who passed (>=70%) or have reports
+        const mapped: DisplayCandidate[] = [];
+
+        // Add from completed assessment reports
+        reports.forEach((r) => {
+          const score = typeof r.score === "number" ? r.score : 0;
+          let selStatus: "SELECTED" | "SHORTLISTED" | "OFFER_EXTENDED" = "SHORTLISTED";
+          if (score >= 90) selStatus = "OFFER_EXTENDED";
+          else if (score >= 70) selStatus = "SELECTED";
+
+          mapped.push({
+            id: r.candidateId || r.assessmentId,
+            name: r.candidateName || "Candidate",
+            email: r.candidateEmail || "",
+            role: "Java Backend Engineer",
+            workspaceName: r.workspaceName || "Campus Drive",
+            score: r.score,
+            status: r.status,
+            assessmentId: r.assessmentId,
+            selectionStatus: selStatus,
+          });
+        });
+
+        // Add any remaining candidates from candidate registry
+        if (Array.isArray(candList)) {
+          candList.forEach((c: CandidateProfile) => {
+            if (!mapped.some((m) => m.email.toLowerCase() === c.email.toLowerCase())) {
+              mapped.push({
+                id: c.id,
+                name: c.name,
+                email: c.email,
+                role: c.role || "Java Software Engineer",
+                workspaceName: "General Pool",
+                status: "READY",
+                selectionStatus: "SHORTLISTED",
+              });
+            }
+          });
+        }
+
+        setCandidates(mapped);
+      } catch (err) {
+        console.error("Failed to load selected candidates:", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const filteredCandidates = candidates.filter((cand) => {
     const matchesSearch =
       cand.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       cand.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -83,9 +171,9 @@ export const SelectedCandidatesPage = () => {
 
         <div className="flex items-center gap-3">
           <div className="px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-2xl text-center">
-            <span className="text-[10px] uppercase font-bold text-emerald-700 block">Total Selected</span>
+            <span className="text-[10px] uppercase font-bold text-emerald-700 block">Total In Pipeline</span>
             <span className="text-xl font-extrabold text-emerald-900 block">
-              {selectedCandidates.length}
+              {candidates.length}
             </span>
           </div>
         </div>
@@ -105,7 +193,6 @@ export const SelectedCandidatesPage = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto self-end md:self-center">
-          {/* Workspace Filter */}
           <div className="flex items-center gap-1.5 text-xs text-gray-600">
             <Filter className="w-3.5 h-3.5 text-gray-400" />
             <select
@@ -122,129 +209,85 @@ export const SelectedCandidatesPage = () => {
             </select>
           </div>
 
-          {/* Status Filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="h-9 rounded-xl border border-gray-200 bg-gray-50/70 px-3 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#F05323]"
           >
-            <option value="ALL">All Stages</option>
-            <option value="SELECTED">Selected</option>
+            <option value="ALL">All Pipeline Stages</option>
             <option value="OFFER_EXTENDED">Offer Extended</option>
+            <option value="SELECTED">Selected for Hire</option>
             <option value="SHORTLISTED">Shortlisted</option>
           </select>
         </div>
       </div>
 
-      {/* 3. Selected Candidates Table */}
-      <div className="bg-white rounded-3xl border border-gray-200/90 shadow-2xs overflow-hidden">
-        {filteredCandidates.length === 0 ? (
-          <div className="p-12 text-center space-y-3">
-            <UserCheck2 className="w-10 h-10 text-gray-300 mx-auto" />
-            <h4 className="text-sm font-bold text-gray-900">No Selected Candidates Found</h4>
-            <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              Candidates marked as selected from workspace candidate detail views will appear here.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50/80 text-gray-500 font-semibold uppercase tracking-wider border-b border-gray-100">
-                <tr>
-                  <th className="px-6 py-3.5">Candidate</th>
-                  <th className="px-6 py-3.5">Position / Role</th>
-                  <th className="px-6 py-3.5">Placement Drive</th>
-                  <th className="px-6 py-3.5">Assessment Score</th>
-                  <th className="px-6 py-3.5">Selection Status</th>
-                  <th className="px-6 py-3.5">Selected Date</th>
-                  <th className="px-6 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredCandidates.map((cand) => (
-                  <tr key={cand.id} className="hover:bg-orange-50/30 transition-colors">
-                    {/* Candidate */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={
-                            cand.avatarUrl ||
-                            "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80"
-                          }
-                          alt={cand.name}
-                          className="w-9 h-9 rounded-full object-cover border border-gray-200"
-                        />
-                        <div>
-                          <span className="font-bold text-gray-900 block">{cand.name}</span>
-                          <span className="text-[11px] text-gray-500 font-mono flex items-center gap-1">
-                            <Mail className="w-3 h-3 text-gray-400" />
-                            {cand.email}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
+      {/* 3. Candidate Grid */}
+      {isLoading ? (
+        <div className="bg-white rounded-3xl border border-gray-200 p-12 flex flex-col items-center justify-center gap-2 text-xs text-gray-400">
+          <Loader2 className="w-5 h-5 animate-spin text-[#F05323]" />
+          Loading candidate pipeline...
+        </div>
+      ) : filteredCandidates.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-gray-200 p-12 text-center text-xs text-gray-400 space-y-2">
+          <p>No candidates found matching the selected filters.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredCandidates.map((cand) => (
+            <div
+              key={cand.id}
+              className="bg-white rounded-3xl border border-gray-200/90 p-6 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+            >
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-sm text-gray-900">{cand.name}</h3>
+                    <p className="text-[11px] text-gray-500 font-mono">{cand.email}</p>
+                    <span className="inline-block text-[11px] font-semibold text-gray-600 mt-1">
+                      {cand.role}
+                    </span>
+                  </div>
+                  {getStatusBadge(cand.selectionStatus)}
+                </div>
 
-                    {/* Role */}
-                    <td className="px-6 py-4">
-                      <span className="font-semibold text-gray-800">{cand.role}</span>
-                    </td>
+                <div className="p-3 bg-gray-50/80 rounded-2xl border border-gray-100 space-y-1.5 text-xs text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="font-medium truncate">{cand.workspaceName}</span>
+                  </div>
+                  {typeof cand.score === "number" && (
+                    <div className="flex items-center gap-2">
+                      <Award className="w-3.5 h-3.5 text-[#F05323]" />
+                      <span className="font-bold text-gray-900">Score: {cand.score}%</span>
+                    </div>
+                  )}
+                </div>
+              </div>
 
-                    {/* Drive */}
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1 text-gray-700 bg-gray-100 px-2.5 py-1 rounded-lg">
-                        <Building2 className="w-3.5 h-3.5 text-gray-400" />
-                        {cand.workspaceName}
-                      </span>
-                    </td>
-
-                    {/* Score */}
-                    <td className="px-6 py-4">
-                      {cand.latestScore || cand.assessment?.score ? (
-                        <div className="flex items-center gap-1.5">
-                          <Award className="w-4 h-4 text-emerald-600" />
-                          <span className="font-extrabold text-sm text-emerald-600">
-                            {cand.latestScore || cand.assessment?.score}%
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 font-mono">Pending</span>
-                      )}
-                    </td>
-
-                    {/* Selection Status */}
-                    <td className="px-6 py-4">
-                      {getStatusBadge(cand.selectionStatus)}
-                    </td>
-
-                    {/* Selected Date */}
-                    <td className="px-6 py-4 text-gray-600">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                        <span>{cand.selectedDate || "2026-08-18"}</span>
-                      </div>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-6 py-4 text-right">
-                      {cand.assessment?.status === "COMPLETED" ? (
-                        <Link
-                          to={`/dashboard/candidates/${cand.assessment.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-bold text-[#F05323] hover:underline"
-                        >
-                          <span>View Evaluation</span>
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </Link>
-                      ) : (
-                        <span className="text-[11px] text-gray-400 font-medium">Selected</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-[10px] text-gray-400">Live Evaluation</span>
+                {cand.assessmentId ? (
+                  <Link
+                    to={`/dashboard/candidates/${cand.assessmentId}`}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-[#F05323] hover:underline"
+                  >
+                    <span>View Report</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                ) : (
+                  <Link
+                    to="/dashboard/workspaces"
+                    className="text-xs font-semibold text-gray-500 hover:text-gray-900"
+                  >
+                    View Workspace
+                  </Link>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

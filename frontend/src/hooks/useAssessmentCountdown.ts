@@ -19,8 +19,8 @@ export interface CountdownState {
  * - ISO string in fallbackIso
  */
 export function parseScheduledTarget(
-  dateStr: string,
-  timeStr: string,
+  dateStr?: string,
+  timeStr?: string,
   fallbackIso?: string
 ): number {
   if (fallbackIso) {
@@ -28,28 +28,44 @@ export function parseScheduledTarget(
     if (!isNaN(d.getTime())) return d.getTime();
   }
 
+  if (!dateStr) {
+    return Date.now();
+  }
+
   if (dateStr.toLowerCase().includes("live") || dateStr.toLowerCase().includes("today")) {
     return Date.now() - 5000; // already live
   }
 
-  // Combined string: e.g. "25 August 2026 10:30 AM" or "August 25, 2026 10:30:00"
+  // Handle ISO format in dateStr (e.g. 2026-08-28T10:00:00.000Z)
+  if (dateStr.includes("T")) {
+    const isoDate = new Date(dateStr);
+    if (!isNaN(isoDate.getTime())) return isoDate.getTime();
+  }
+
   const cleanDate = dateStr.replace(/,/g, "").trim();
-  const cleanTime = timeStr.trim();
-  const combined = `${cleanDate} ${cleanTime}`;
+  const cleanTime = (timeStr || "").trim();
+  const combined = cleanTime ? `${cleanDate} ${cleanTime}` : cleanDate;
 
   const parsed = new Date(combined);
   if (!isNaN(parsed.getTime())) {
     return parsed.getTime();
   }
 
-  // Attempt alternative parsing: e.g. "25 Aug 2026"
-  const isoAttempt = new Date(`${dateStr}T${timeStr}`);
-  if (!isNaN(isoAttempt.getTime())) {
-    return isoAttempt.getTime();
+  // Attempt YYYY-MM-DD + HH:mm or HH:mm:ss
+  if (cleanTime) {
+    const isoAttempt = new Date(`${cleanDate}T${cleanTime}`);
+    if (!isNaN(isoAttempt.getTime())) {
+      return isoAttempt.getTime();
+    }
   }
 
-  // Fallback: 5 days from now
-  return Date.now() + 5 * 24 * 60 * 60 * 1000;
+  const dateOnly = new Date(cleanDate);
+  if (!isNaN(dateOnly.getTime())) {
+    return dateOnly.getTime();
+  }
+
+  // If unparseable, default to now (unlocked) rather than an arbitrary 5 days lock
+  return Date.now();
 }
 
 export function useAssessmentCountdown(

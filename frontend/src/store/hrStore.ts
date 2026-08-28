@@ -59,6 +59,9 @@ interface HRStoreState {
   // Actions
   setActiveCandidateId: (id: string) => void;
 
+  setWorkspaces: (workspaces: HRWorkspace[]) => void;
+  resetStore: () => void;
+
   createWorkspace: (data: {
     id?: string;
     name: string;
@@ -89,6 +92,8 @@ interface HRStoreState {
     durationMinutes: number;
     scheduledDate: string;
     scheduledTime: string;
+    scheduledStartAt?: string;
+    scheduledEndAt?: string;
     status?: any;
     score?: number;
   }) => HRAssessment;
@@ -145,6 +150,16 @@ export const useHRStore = create<HRStoreState>()(
       activeCandidateId: "",
 
       setActiveCandidateId: (id) => set({ activeCandidateId: id }),
+
+      setWorkspaces: (workspacesList) => set({ workspaces: workspacesList }),
+
+      resetStore: () =>
+        set({
+          workspaces: [],
+          candidates: [],
+          assessments: [],
+          activeCandidateId: "",
+        }),
 
       createWorkspace: (data) => {
         const newWs: HRWorkspace = {
@@ -252,6 +267,8 @@ export const useHRStore = create<HRStoreState>()(
           durationMinutes: data.durationMinutes || 90,
           scheduledDate: data.scheduledDate,
           scheduledTime: data.scheduledTime,
+          scheduledStartAt: data.scheduledStartAt,
+          scheduledEndAt: data.scheduledEndAt,
           status: (data as any).status || "SCHEDULED",
           score: (data as any).score,
         };

@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
   CheckCircle2,
-  Terminal,
   Cpu,
   Layers,
   Sparkles,
@@ -51,31 +50,20 @@ export const LandingPage = () => {
             </a>
           </nav>
 
-          {/* Action Buttons for Recruiter and Candidate Portals */}
+          {/* Action Buttons for Authentication */}
           <div className="flex items-center space-x-3">
-            <Link to="/login?role=candidate">
-              <Button
-                variant="outline"
-                size="sm"
-                className="hidden sm:inline-flex font-semibold text-gray-700 hover:text-gray-900 border-gray-200 hover:bg-gray-50"
-              >
-                <Code2 className="w-3.5 h-3.5 mr-1.5 text-gray-500" />
-                Candidate Portal
-              </Button>
-            </Link>
-            <Link to="/login?role=recruiter">
+            <Link to="/login">
               <Button
                 variant="outline"
                 size="sm"
                 className="font-semibold text-gray-700 hover:text-gray-900 border-gray-200 hover:bg-gray-50"
               >
-                <Briefcase className="w-3.5 h-3.5 mr-1.5 text-[#F05323]" />
-                Recruiter Sign In
+                Sign In
               </Button>
             </Link>
             <Link to="/signup">
-              <Button size="sm" className="font-semibold shadow-xs bg-[#F05323] hover:bg-[#d94417]">
-                Get Started
+              <Button size="sm" className="font-semibold shadow-xs bg-[#F05323] hover:bg-[#d94417] text-white">
+                Create Account
               </Button>
             </Link>
           </div>
@@ -105,22 +93,21 @@ export const LandingPage = () => {
                 Evidence automatically analyzes candidate Java Spring Boot GitHub repositories and generates practical, project-specific feature tasks. Candidates build and run code in isolated Docker environments while hidden HTTP tests evaluate observable behavior.
               </p>
 
-              {/* Primary Dual Role Action Buttons */}
+              {/* Primary Action Buttons */}
               <div className="flex flex-wrap items-center gap-4 pt-2">
-                <Link to="/login?role=recruiter">
-                  <Button size="lg" className="gap-2 font-semibold shadow-md bg-[#F05323] hover:bg-[#d94417]">
-                    <Briefcase className="w-4 h-4" />
-                    Recruiter Portal <ArrowRight className="w-4 h-4" />
+                <Link to="/signup">
+                  <Button size="lg" className="gap-2 font-semibold shadow-md bg-[#F05323] hover:bg-[#d94417] text-white">
+                    <Sparkles className="w-4 h-4" />
+                    Get Started Free <ArrowRight className="w-4 h-4" />
                   </Button>
                 </Link>
-                <Link to="/login?role=candidate">
+                <Link to="/login">
                   <Button
                     variant="outline"
                     size="lg"
                     className="gap-2 font-semibold bg-white border-gray-300 text-gray-800 hover:bg-gray-50 shadow-xs"
                   >
-                    <Terminal className="w-4 h-4 text-emerald-600" />
-                    Candidate Portal
+                    Sign In to Portal
                   </Button>
                 </Link>
               </div>
@@ -514,9 +501,9 @@ export const LandingPage = () => {
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
-                  <Link to="/login?role=recruiter" className="block">
-                    <Button className="w-full font-semibold gap-2 shadow-xs bg-[#F05323] hover:bg-[#d94417]">
-                      Access Recruiter Portal <ArrowRight className="w-4 h-4" />
+                  <Link to="/signup" className="block">
+                    <Button className="w-full font-semibold gap-2 shadow-xs bg-[#F05323] hover:bg-[#d94417] text-white">
+                      Get Started as Recruiter <ArrowRight className="w-4 h-4" />
                     </Button>
                   </Link>
                 </div>
@@ -556,12 +543,12 @@ export const LandingPage = () => {
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
-                  <Link to="/login?role=candidate" className="block">
+                  <Link to="/signup" className="block">
                     <Button
                       variant="outline"
                       className="w-full font-semibold gap-2 border-gray-300 text-gray-800 bg-white hover:bg-gray-50 shadow-xs"
                     >
-                      Access Candidate Portal <ArrowRight className="w-4 h-4" />
+                      Get Started as Candidate <ArrowRight className="w-4 h-4" />
                     </Button>
                   </Link>
                 </div>

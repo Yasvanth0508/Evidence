@@ -7,6 +7,8 @@ export interface WorkspaceItem {
   status: string;
 }
 
+export type WorkspaceResponse = WorkspaceItem;
+
 export interface CreateWorkspacePayload {
   name: string;
   description?: string;

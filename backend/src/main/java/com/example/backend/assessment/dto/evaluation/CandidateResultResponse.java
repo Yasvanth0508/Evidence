@@ -28,4 +28,5 @@ public class CandidateResultResponse {
     private ApplicationStatus applicationStatus;
     private Long timeTakenSeconds;
     private Instant evaluatedAt;
+    private Instant submittedAt;
 }

@@ -25,7 +25,7 @@ export const DashboardOverview = () => {
     workspaces,
     candidates,
     assessments,
-    createWorkspace,
+    setWorkspaces,
     getDashboardMetrics,
   } = useHRStore();
 
@@ -38,18 +38,17 @@ export const DashboardOverview = () => {
       .getWorkspaces()
       .then((backendWsList) => {
         if (isMounted && Array.isArray(backendWsList)) {
-          backendWsList.forEach((bWs) => {
-            const exists = workspaces.some((w) => w.id === bWs.id || w.name === bWs.name);
-            if (!exists) {
-              createWorkspace({
-                id: bWs.id,
-                name: bWs.name,
-                description: bWs.description || "",
-                track: "Java Spring Boot Backend",
-                defaultDurationMinutes: 90,
-              });
-            }
-          });
+          const mapped = backendWsList.map((bWs) => ({
+            id: bWs.id,
+            name: bWs.name,
+            description: bWs.description || "",
+            track: "Java Spring Boot Backend",
+            defaultDurationMinutes: 90,
+            status: (bWs.status as any) || "ACTIVE",
+            createdAt: new Date().toISOString().split("T")[0],
+            candidateIds: [],
+          }));
+          setWorkspaces(mapped);
         }
       })
       .catch((err) => {
@@ -88,7 +87,7 @@ export const DashboardOverview = () => {
     return {
       ...asmt,
       candidateName: cand ? cand.name : "Candidate",
-      candidateEmail: cand ? cand.email : "cand@example.com",
+      candidateEmail: cand ? cand.email : "",
       workspaceName: ws ? ws.name : "Workspace",
       role: cand ? cand.role : "Java Developer",
     };

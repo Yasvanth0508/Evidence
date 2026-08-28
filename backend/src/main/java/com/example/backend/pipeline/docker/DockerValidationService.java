@@ -284,8 +284,7 @@ public class DockerValidationService {
     }
 
     private boolean isDockerDaemonRunning() {
-        DockerCommandExecutor.ProcessResult result = dockerExecutor.executeCommand(null, 5, "docker", "info");
-        return result.isSuccess();
+        return DockerUtils.isDockerDaemonRunning(dockerExecutor);
     }
 
     private String findMainClassName(Path backendDir) {

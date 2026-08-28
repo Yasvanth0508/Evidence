@@ -27,7 +27,7 @@ import { AssessmentProcessingModal } from "@/components/dashboard/AssessmentProc
 import { AstAnalysisDrawer } from "@/components/dashboard/AstAnalysisDrawer";
 
 export const CandidateDetailPage = () => {
-  const { workspaceId = "ws-iit-bombay", candidateId = "cand-001" } = useParams<{
+  const { workspaceId = "", candidateId = "" } = useParams<{
     workspaceId: string;
     candidateId: string;
   }>();
@@ -65,8 +65,8 @@ export const CandidateDetailPage = () => {
   const [backendRootDirectory, setBackendRootDirectory] = useState("");
   const [difficulty, setDifficulty] = useState<"EASY" | "INTERMEDIATE" | "DIFFICULT">("INTERMEDIATE");
   const [durationMinutes, setDurationMinutes] = useState(workspace?.defaultDurationMinutes || 90);
-  const [scheduledDate, setScheduledDate] = useState("26 August 2026");
-  const [scheduledTime, setScheduledTime] = useState("10:30 AM");
+  const [scheduledDate, setScheduledDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [scheduledTime, setScheduledTime] = useState("10:30");
   const [formError, setFormError] = useState("");
 
   // Sync workspace, candidates, and assessments from backend
@@ -140,6 +140,8 @@ export const CandidateDetailPage = () => {
                 score: asmt.score,
                 scheduledDate: asmt.scheduledStartAt ? new Date(asmt.scheduledStartAt).toLocaleDateString() : "Today",
                 scheduledTime: asmt.scheduledStartAt ? new Date(asmt.scheduledStartAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "10:00 AM",
+                scheduledStartAt: asmt.scheduledStartAt,
+                scheduledEndAt: asmt.scheduledEndAt,
               });
             }
           });
@@ -185,13 +187,37 @@ export const CandidateDetailPage = () => {
       const isUuid = (str?: string) =>
         Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
 
-      // Calculate start and end ISO times
-      const now = new Date();
-      const scheduledStartAt = new Date(now.getTime() - 1000 * 60).toISOString();
-      const scheduledEndAt = new Date(now.getTime() + 1000 * 60 * (Number(durationMinutes) || 90)).toISOString();
+      // Calculate start and end ISO times accurately from selected date & time
+      let startDate: Date;
+      if (scheduledDate && scheduledTime) {
+        // Try ISO combined first: YYYY-MM-DDTHH:mm
+        const isoCombined = new Date(`${scheduledDate}T${scheduledTime}`);
+        if (!isNaN(isoCombined.getTime())) {
+          startDate = isoCombined;
+        } else {
+          const spaceCombined = new Date(`${scheduledDate} ${scheduledTime}`);
+          if (!isNaN(spaceCombined.getTime())) {
+            startDate = spaceCombined;
+          } else {
+            startDate = new Date(scheduledDate);
+            if (isNaN(startDate.getTime())) {
+              startDate = new Date();
+            }
+          }
+        }
+      } else {
+        startDate = new Date();
+      }
 
-      let targetWsUuid = isUuid(workspaceId) ? workspaceId : "8ffaf7bb-0410-4cfd-a26d-f004a3229036";
-      let targetCandidateUuid = isUuid(candidateId) ? candidateId : "52127120-fa9e-43a1-958a-6a63ef9af8c5";
+      const scheduledStartAt = startDate.toISOString();
+      const scheduledEndAt = new Date(startDate.getTime() + (Number(durationMinutes) || 90) * 60 * 1000).toISOString();
+      let targetWsUuid = workspaceId;
+      let targetCandidateUuid = candidateId;
+
+      if (!isUuid(targetWsUuid)) {
+        setFormError("Invalid workspace ID. Please select a valid workspace.");
+        return;
+      }
 
       if (candidate?.email) {
         try {
@@ -202,6 +228,11 @@ export const CandidateDetailPage = () => {
         } catch (searchErr) {
           console.debug("Candidate search by email:", searchErr);
         }
+      }
+
+      if (!isUuid(targetCandidateUuid)) {
+        setFormError("Invalid candidate ID. Please select a valid registered candidate.");
+        return;
       }
 
       const apiRes = await assessmentService.createAssessment(targetWsUuid, {
@@ -237,6 +268,8 @@ export const CandidateDetailPage = () => {
         durationMinutes: Number(durationMinutes),
         scheduledDate,
         scheduledTime,
+        scheduledStartAt,
+        scheduledEndAt,
       });
 
       setSuccessToast("Assessment scheduled! AI Generation Pipeline initiated.");
@@ -769,9 +802,8 @@ export const CandidateDetailPage = () => {
                       Assessment Date <span className="text-[#F05323]">*</span>
                     </label>
                     <Input
-                      type="text"
+                      type="date"
                       required
-                      placeholder="e.g. 25 August 2026"
                       value={scheduledDate}
                       onChange={(e) => setScheduledDate(e.target.value)}
                       icon={<Calendar className="w-4 h-4 text-gray-400" />}
@@ -785,9 +817,8 @@ export const CandidateDetailPage = () => {
                       Assessment Time <span className="text-[#F05323]">*</span>
                     </label>
                     <Input
-                      type="text"
+                      type="time"
                       required
-                      placeholder="e.g. 10:30 AM"
                       value={scheduledTime}
                       onChange={(e) => setScheduledTime(e.target.value)}
                       icon={<Clock className="w-4 h-4 text-gray-400" />}

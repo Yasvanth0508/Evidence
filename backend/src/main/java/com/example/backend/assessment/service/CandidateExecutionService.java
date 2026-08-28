@@ -12,6 +12,7 @@ import com.example.backend.common.enums.ContainerStatus;
 import com.example.backend.common.exception.ForbiddenException;
 import com.example.backend.common.exception.ResourceNotFoundException;
 import com.example.backend.pipeline.docker.DockerCommandExecutor;
+import com.example.backend.pipeline.docker.DockerUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,8 +25,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Stream;
 
+/**
+ * Service managing the compilation, packaging, and execution of candidate source code
+ * within ephemeral Docker containers or native sandbox processes.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -53,7 +57,13 @@ public class CandidateExecutionService {
     ) {}
 
     /**
-     * Phase B.1: Compiles candidate code, launches ephemeral container/process on dynamic port.
+     * Compiles candidate code and launches an ephemeral Docker container or sandboxed process.
+     *
+     * @param candidateId  UUID of the candidate triggering the run.
+     * @param assessmentId UUID of the assessment being executed.
+     * @return ExecutionRunResponse containing port and execution status.
+     * @throws ResourceNotFoundException if assessment does not exist.
+     * @throws ForbiddenException        if candidate is not authorized for the assessment.
      */
     public ExecutionRunResponse runCandidateApplication(UUID candidateId, UUID assessmentId) {
         log.info("Candidate {} requested application RUN for assessment {}", candidateId, assessmentId);
@@ -61,7 +71,7 @@ public class CandidateExecutionService {
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assessment not found: " + assessmentId));
 
-        if (candidateId != null && assessment.getCandidate() != null && !assessment.getCandidate().getId().equals(candidateId)) {
+        if (assessment.getCandidate() == null || !assessment.getCandidate().getId().equals(candidateId)) {
             throw new ForbiddenException("Candidate is not authorized for this assessment");
         }
 
@@ -82,7 +92,7 @@ public class CandidateExecutionService {
 
         // 2. Package candidate code
         Path targetDir = workspaceDir.resolve("target");
-        boolean jarExists = findJarFile(targetDir).isPresent();
+        boolean jarExists = DockerUtils.findJarFile(targetDir).isPresent();
 
         // Ensure .mvn/wrapper/maven-wrapper.properties exists if mvnw is used
         Path mvnDir = workspaceDir.resolve(".mvn");
@@ -91,19 +101,19 @@ public class CandidateExecutionService {
             Path backendMvn = Paths.get(".mvn").toAbsolutePath();
             try {
                 if (origMvn != null && Files.exists(origMvn)) {
-                    copyDirectorySimple(origMvn, mvnDir);
+                    DockerUtils.copyDirectorySimple(origMvn, mvnDir);
                 } else if (Files.exists(backendMvn)) {
-                    copyDirectorySimple(backendMvn, mvnDir);
+                    DockerUtils.copyDirectorySimple(backendMvn, mvnDir);
                 }
             } catch (Exception ex) {
                 log.warn("Could not copy fallback .mvn wrapper: {}", ex.getMessage());
             }
         }
 
-        String mvnCmd = isWindows() ? "mvn.cmd" : "mvn";
+        String mvnCmd = DockerUtils.isWindows() ? "mvn.cmd" : "mvn";
         boolean hasWrapperProps = Files.exists(mvnDir.resolve("wrapper").resolve("maven-wrapper.properties"));
         if (hasWrapperProps && Files.exists(workspaceDir.resolve("mvnw.cmd"))) {
-            mvnCmd = isWindows() ? "mvnw.cmd" : "./mvnw";
+            mvnCmd = DockerUtils.isWindows() ? "mvnw.cmd" : "./mvnw";
         } else if (hasWrapperProps && Files.exists(workspaceDir.resolve("mvnw"))) {
             mvnCmd = "./mvnw";
         }
@@ -115,18 +125,18 @@ public class CandidateExecutionService {
         );
 
         logBuffer.append(execKey, packageResult.combinedOutput() + "\n");
-        jarExists = findJarFile(targetDir).isPresent();
+        jarExists = DockerUtils.findJarFile(targetDir).isPresent();
 
         if (!jarExists) {
-            // Fallback packaging via JDK jar tool
+            // Fallback packaging via JDK jar tool if target/classes exists
             Path classesDir = targetDir.resolve("classes");
             if (Files.exists(classesDir)) {
                 try {
                     Files.createDirectories(targetDir);
                     String javaHome = System.getProperty("java.home");
-                    String jarExe = javaHome != null ? javaHome + File.separator + "bin" + File.separator + (isWindows() ? "jar.exe" : "jar") : "jar";
+                    String jarExe = javaHome != null ? javaHome + File.separator + "bin" + File.separator + (DockerUtils.isWindows() ? "jar.exe" : "jar") : "jar";
                     dockerExecutor.executeCommand(workingDir, 30, jarExe, "-cf", "target/app.jar", "-C", "target/classes", ".");
-                    jarExists = findJarFile(targetDir).isPresent();
+                    jarExists = DockerUtils.findJarFile(targetDir).isPresent();
                 } catch (Exception ignored) {}
             }
         }
@@ -145,7 +155,7 @@ public class CandidateExecutionService {
                     .build();
         }
 
-        // 3. Ensure Dockerfile exists
+        // 3. Ensure Dockerfile exists in workspace
         Path dockerfilePath = workspaceDir.resolve("Dockerfile");
         if (!Files.exists(dockerfilePath)) {
             try {
@@ -161,7 +171,7 @@ public class CandidateExecutionService {
         }
 
         // 4. Launch Container (or Fallback Process)
-        boolean dockerAvailable = isDockerDaemonRunning();
+        boolean dockerAvailable = DockerUtils.isDockerDaemonRunning(dockerExecutor);
         if (dockerAvailable) {
             logBuffer.append(execKey, ">>> [2/3] Building Docker image " + tag + "...\n");
             DockerCommandExecutor.ProcessResult buildResult = dockerExecutor.executeCommand(
@@ -171,8 +181,8 @@ public class CandidateExecutionService {
 
             if (!buildResult.isSuccess()) {
                 activeExecutions.put(assessmentId, new ActiveExecution(
-                        executionId, assessmentId, containerName, tag, exposedPort, null,
-                        Instant.now(), BuildStatus.FAILED, ContainerStatus.STOPPED, ApplicationStatus.FAILED, buildResult.stderr()
+                    executionId, assessmentId, containerName, tag, exposedPort, null,
+                    Instant.now(), BuildStatus.FAILED, ContainerStatus.STOPPED, ApplicationStatus.FAILED, buildResult.stderr()
                 ));
                 return ExecutionRunResponse.builder()
                         .executionId(executionId)
@@ -199,11 +209,11 @@ public class CandidateExecutionService {
         } else {
             // Native sandbox background process
             logBuffer.append(execKey, ">>> [2/3] Docker daemon offline. Starting native sandboxed application on port " + exposedPort + "...\n");
-            Optional<Path> jarPath = findJarFile(targetDir);
+            Optional<Path> jarPath = DockerUtils.findJarFile(targetDir);
             if (jarPath.isPresent()) {
                 try {
                     String javaHome = System.getProperty("java.home");
-                    String javaExe = javaHome != null ? javaHome + File.separator + "bin" + File.separator + (isWindows() ? "java.exe" : "java") : "java";
+                    String javaExe = javaHome != null ? javaHome + File.separator + "bin" + File.separator + (DockerUtils.isWindows() ? "java.exe" : "java") : "java";
                     ProcessBuilder pb = new ProcessBuilder(
                             javaExe, "-jar", jarPath.get().toAbsolutePath().toString(),
                             "--server.port=" + exposedPort
@@ -244,7 +254,11 @@ public class CandidateExecutionService {
     }
 
     /**
-     * Phase B.2: Get current execution status.
+     * Retrieves the current execution status and uptime for an assessment.
+     *
+     * @param candidateId  UUID of the candidate.
+     * @param assessmentId UUID of the assessment.
+     * @return ExecutionStatusResponse with build and container health states.
      */
     public ExecutionStatusResponse getExecutionStatus(UUID candidateId, UUID assessmentId) {
         ActiveExecution exec = activeExecutions.get(assessmentId);
@@ -273,13 +287,17 @@ public class CandidateExecutionService {
     }
 
     /**
-     * Phase B.3: Fetch live execution logs.
+     * Retrieves streaming execution logs and terminal output.
+     *
+     * @param candidateId  UUID of the candidate.
+     * @param assessmentId UUID of the assessment.
+     * @return ExecutionLogsResponse containing collected logs.
      */
     public ExecutionLogsResponse getExecutionLogs(UUID candidateId, UUID assessmentId) {
         String logs = logBuffer.getLogs(assessmentId.toString());
         ActiveExecution exec = activeExecutions.get(assessmentId);
 
-        if (exec != null && isDockerDaemonRunning() && exec.containerName() != null && !exec.containerName().equals("native-process")) {
+        if (exec != null && DockerUtils.isDockerDaemonRunning(dockerExecutor) && exec.containerName() != null && !exec.containerName().equals("native-process")) {
             DockerCommandExecutor.ProcessResult res = dockerExecutor.executeCommand(
                     null, 5, "docker", "logs", "--tail", "100", exec.containerName()
             );
@@ -295,7 +313,11 @@ public class CandidateExecutionService {
     }
 
     /**
-     * Phase B.4: Stop running application container or process.
+     * Stops the running candidate container or process.
+     *
+     * @param candidateId  UUID of the candidate requesting termination.
+     * @param assessmentId UUID of the assessment.
+     * @return StopExecutionResponse confirming termination.
      */
     public StopExecutionResponse stopCandidateApplication(UUID candidateId, UUID assessmentId) {
         log.info("Stopping execution for assessment {}", assessmentId);
@@ -306,6 +328,11 @@ public class CandidateExecutionService {
                 .build();
     }
 
+    /**
+     * Internal cleanup to forcefully kill existing Docker container, image, or native process.
+     *
+     * @param assessmentId UUID of the assessment to clean up.
+     */
     public void stopExistingExecution(UUID assessmentId) {
         ActiveExecution exec = activeExecutions.remove(assessmentId);
         if (exec != null) {
@@ -321,44 +348,5 @@ public class CandidateExecutionService {
                 exec.process().destroyForcibly();
             }
         }
-    }
-
-    private void copyDirectorySimple(Path source, Path destination) throws IOException {
-        Files.walkFileTree(source, new SimpleFileVisitor<>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path dir, java.nio.file.attribute.BasicFileAttributes attrs) throws IOException {
-                Path targetDir = destination.resolve(source.relativize(dir));
-                if (!Files.exists(targetDir)) {
-                    Files.createDirectories(targetDir);
-                }
-                return FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult visitFile(Path file, java.nio.file.attribute.BasicFileAttributes attrs) throws IOException {
-                Path targetFile = destination.resolve(source.relativize(file));
-                Files.copy(file, targetFile, StandardCopyOption.REPLACE_EXISTING);
-                return FileVisitResult.CONTINUE;
-            }
-        });
-    }
-
-    private boolean isDockerDaemonRunning() {
-        DockerCommandExecutor.ProcessResult result = dockerExecutor.executeCommand(null, 5, "docker", "info");
-        return result.isSuccess();
-    }
-
-    private Optional<Path> findJarFile(Path targetDir) {
-        if (!Files.exists(targetDir)) return Optional.empty();
-        try (Stream<Path> stream = Files.list(targetDir)) {
-            return stream.filter(p -> p.getFileName().toString().endsWith(".jar") && !p.getFileName().toString().startsWith("original-"))
-                    .findFirst();
-        } catch (IOException e) {
-            return Optional.empty();
-        }
-    }
-
-    private boolean isWindows() {
-        return System.getProperty("os.name", "").toLowerCase().contains("win");
     }
 }

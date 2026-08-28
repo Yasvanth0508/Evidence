@@ -3,8 +3,6 @@ package com.example.backend.pipeline.feature;
 import com.example.backend.pipeline.analysis.dto.*;
 import org.springframework.stereotype.Component;
 
-import java.util.stream.Collectors;
-
 @Component
 public class FeaturePromptBuilder {
 

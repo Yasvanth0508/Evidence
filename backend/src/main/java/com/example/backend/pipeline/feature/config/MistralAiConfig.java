@@ -24,9 +24,16 @@ public class MistralAiConfig {
     @Value("${mistral.ai.timeout-seconds:60}")
     private int timeoutSeconds = 60;
 
-    public MistralAiConfig() {
-        // 1. Check OS Environment variable
-        this.apiKey = System.getenv("MISTRAL_API_KEY");
+    /**
+     * Initializes configuration fallbacks if environment variables or properties
+     * were not directly injected by Spring.
+     */
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        // 1. Check OS Environment variable if not set
+        if (this.apiKey == null || this.apiKey.trim().isEmpty() || this.apiKey.startsWith("${")) {
+            this.apiKey = System.getenv("MISTRAL_API_KEY");
+        }
 
         // 2. Check local .env file in root or backend folder
         if (this.apiKey == null || this.apiKey.trim().isEmpty()) {

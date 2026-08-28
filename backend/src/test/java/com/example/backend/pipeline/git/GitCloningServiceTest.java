@@ -1,7 +1,5 @@
 package com.example.backend.pipeline.git;
 
-import com.example.backend.assessment.repository.AssessmentRepository;
-import com.example.backend.assessment.repository.AssessmentWorkspaceRepository;
 import com.example.backend.pipeline.git.dto.GitCloneResult;
 import org.eclipse.jgit.api.Git;
 import org.junit.jupiter.api.DisplayName;

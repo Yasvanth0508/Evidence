@@ -2,19 +2,16 @@ import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import { AuthTeamIllustration } from "@/components/auth/AuthTeamIllustration";
 import { authService } from "@/services/authService";
 import { useAuthStore, UserRole } from "@/store/authStore";
 import {
-  Mail,
-  Lock,
   Eye,
   EyeOff,
-  ArrowRight,
-  ShieldCheck,
   Loader2,
-  Sparkles,
+  AlertCircle,
+  ArrowLeft,
 } from "lucide-react";
 
 export const LoginPage = () => {
@@ -48,7 +45,7 @@ export const LoginPage = () => {
     setErrorMessage("");
 
     if (!email.trim()) {
-      setErrorMessage("Please enter your email address.");
+      setErrorMessage("Please enter your business email address.");
       return;
     }
     if (!password) {
@@ -129,67 +126,165 @@ export const LoginPage = () => {
     }
   };
 
-
-
   return (
-    <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-between font-sans">
-      {/* 1. Header */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <Logo size="md" />
-
-          <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-600">
-            <Link to="/#overview" className="hover:text-gray-900 transition-colors">
-              Platform Overview
-            </Link>
-            <Link to="/#how-it-works" className="hover:text-gray-900 transition-colors">
-              How It Works
-            </Link>
-            <Link to="/#architecture" className="hover:text-gray-900 transition-colors">
-              Key Capabilities
-            </Link>
-            <Link to="/#portals" className="hover:text-gray-900 transition-colors">
-              Role Portals
-            </Link>
-          </nav>
-
-          <div className="flex items-center space-x-3">
-            <Link to="/signup">
-              <Button size="sm" className="font-semibold shadow-xs bg-[#F05323] hover:bg-[#d94417] text-white">
-                Create Account
-              </Button>
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#EAEEF4] p-0 sm:p-4 lg:p-6 font-sans text-slate-900 selection:bg-orange-100 selection:text-orange-900 antialiased">
+      {/* Main Symmetrical Container Card matching reference split design */}
+      <div className="w-full max-w-[1200px] min-h-screen sm:min-h-[640px] lg:h-[88vh] max-h-[850px] bg-white rounded-none sm:rounded-3xl border sm:border-slate-200/90 shadow-2xl flex flex-col lg:flex-row overflow-hidden">
+        {/* =========================================================================
+            LEFT COLUMN: PROMO BANNER & TEAM COLLABORATION ILLUSTRATION (50% EQUAL SPACE)
+            ========================================================================= */}
+        <div className="w-full lg:w-1/2 flex-1 bg-[#F3F6F9] border-b lg:border-b-0 lg:border-r border-slate-200/80 flex flex-col justify-between p-6 sm:p-10 lg:p-12 relative overflow-hidden">
+          {/* Top Utility: Back to home */}
+          <div className="flex items-center justify-between w-full">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors py-1 px-2.5 rounded-lg hover:bg-slate-200/60"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to home</span>
             </Link>
           </div>
-        </div>
-      </header>
 
-      {/* 2. Main Unified Login Card */}
-      <main className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-6">
-          <div className="bg-white border border-gray-200/90 rounded-3xl p-8 sm:p-10 shadow-sm">
-            {/* Title & Subtitle */}
-            <div className="text-center space-y-1.5 mb-8">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-[#F05323] border border-orange-200/60 mb-2">
-                <Sparkles className="w-3.5 h-3.5 text-[#F05323]" />
-                Evidence Unified Access
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
-                Welcome Back
-              </h1>
-              <p className="text-xs sm:text-sm text-gray-500">
-                Sign in to your account to continue to your dashboard.
-              </p>
+          {/* Center Content: Symmetrical max-w-[440px] */}
+          <div className="my-auto text-center flex flex-col items-center max-w-[440px] mx-auto w-full py-4">
+            <h2 className="text-2xl sm:text-3xl lg:text-[32px] font-bold text-slate-800 leading-tight">
+              Try Evidence free for 15 Days
+            </h2>
+            <p className="mt-2.5 text-xs sm:text-sm text-slate-500 leading-relaxed max-w-sm">
+              Get a chance to explore the product to its fullest before choosing your ideal plan.
+            </p>
+
+            {/* Custom Collaborative Team Illustration */}
+            <div className="w-full mt-6 sm:mt-8">
+              <AuthTeamIllustration />
             </div>
+          </div>
+
+          {/* Subtle bottom spacing to keep exact vertical balance */}
+          <div className="h-4" />
+        </div>
+
+        {/* =========================================================================
+            RIGHT COLUMN: AUTHENTICATION FORM (50% EQUAL SPACE)
+            ========================================================================= */}
+        <div className="w-full lg:w-1/2 flex-1 bg-white flex flex-col justify-center items-center p-6 sm:p-10 lg:p-12 overflow-y-auto">
+          <div className="w-full max-w-[440px] mx-auto my-auto flex flex-col items-center">
+            {/* 1. Centered Brand Logo */}
+            <div className="mb-4">
+              <Logo size="lg" showSubtitle={false} to="/" />
+            </div>
+
+            {/* 2. Heading & Subtitle */}
+            <h1 className="text-2xl sm:text-[26px] font-bold text-slate-800 text-center">
+              Sign In to your account
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 text-center mt-1.5 mb-6">
+              Don't have an account?{" "}
+              <Link
+                to="/signup"
+                className="font-semibold text-[#F05323] hover:underline ml-0.5"
+              >
+                Sign Up
+              </Link>
+            </p>
 
             {/* Error Message Alert */}
             {errorMessage && (
-              <div className="mb-6 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
-                {errorMessage}
+              <div className="w-full mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium flex items-start gap-2 animate-in fade-in duration-200">
+                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 leading-relaxed text-left">{errorMessage}</div>
               </div>
             )}
 
-            {/* Google OAuth Button */}
-            <div className="mb-6">
+            {/* 3. Input Form Fields */}
+            <form onSubmit={handleSubmit} className="w-full space-y-4 text-left">
+              {/* Business Email Field */}
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                  Business Email
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="Input your business email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full h-11 sm:h-12 px-4 rounded-xl bg-[#F1F5F9] border border-transparent hover:border-slate-200 focus:border-[#F05323] focus:bg-white focus:ring-2 focus:ring-[#F05323]/20 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none transition-all shadow-2xs"
+                />
+              </div>
+
+              {/* Password Field */}
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+                  Password
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full h-11 sm:h-12 px-4 pr-11 rounded-xl bg-[#F1F5F9] border border-transparent hover:border-slate-200 focus:border-[#F05323] focus:bg-white focus:ring-2 focus:ring-[#F05323]/20 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none transition-all shadow-2xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-3.5 text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer focus:outline-none"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember Me & Forgot Password Row */}
+              <div className="flex items-center justify-between text-xs pt-0.5">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-[#F05323] focus:ring-[#F05323] accent-[#F05323] cursor-pointer"
+                  />
+                  <span className="text-slate-600 font-medium">Remember me</span>
+                </label>
+
+                <span className="font-medium text-slate-500 hover:text-slate-800 transition-colors cursor-pointer">
+                  Forgot Password?
+                </span>
+              </div>
+
+              {/* 4. Prominent Submit CTA Button (Evidence Orange Theme) */}
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-11 sm:h-12 rounded-xl bg-[#F05323] hover:bg-[#D94418] text-white font-bold text-xs sm:text-sm uppercase tracking-wider shadow-sm hover:shadow-md active:scale-[0.99] transition-all flex items-center justify-center cursor-pointer mt-5"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" /> Signing In...
+                  </>
+                ) : (
+                  "SIGN IN"
+                )}
+              </Button>
+            </form>
+
+            {/* 5. Divider with "Or sign in with" */}
+            <div className="w-full relative flex items-center justify-center my-6">
+              <div className="w-full border-t border-slate-200" />
+              <span className="absolute bg-white px-3 text-[11px] sm:text-xs text-slate-400 font-medium">
+                Or sign in with
+              </span>
+            </div>
+
+            {/* 6. ONLY CONTINUE WITH GOOGLE BUTTON */}
+            <div className="w-full flex justify-center">
               <GoogleAuthButton
                 text="continue_with"
                 disabled={isLoading}
@@ -198,141 +293,49 @@ export const LoginPage = () => {
               />
             </div>
 
-            {/* Divider */}
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
-              </div>
-              <div className="relative flex justify-center text-xs text-gray-500">
-                <span className="bg-white px-3 text-gray-400 font-medium">or continue with email</span>
-              </div>
-            </div>
-
-            {/* Email / Password Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email Address */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-700 block">
-                  Email Address
-                </label>
-                <Input
-                  type="email"
-                  required
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  icon={<Mail className="w-4 h-4 text-gray-400" />}
-                />
-              </div>
-
-              {/* Password */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-700 block">
-                  Password
-                </label>
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  icon={<Lock className="w-4 h-4 text-gray-400" />}
-                  endIcon={
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="text-gray-400 hover:text-gray-600 focus:outline-none"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
-                  }
-                />
-              </div>
-
-              {/* Remember Me & Forgot Password */}
-              <div className="flex items-center justify-between text-xs pt-1">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-[#F05323] focus:ring-[#F05323] accent-[#F05323]"
-                  />
-                  <span className="text-gray-700 font-medium">Remember me</span>
-                </label>
-
-                <span className="font-medium text-gray-400 hover:text-gray-600 cursor-pointer">
-                  Forgot Password?
-                </span>
-              </div>
-
-
-
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                disabled={isLoading}
-                size="lg"
-                className="w-full font-bold gap-2 shadow-xs mt-3 bg-[#F05323] hover:bg-[#d94417] text-white cursor-pointer"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Signing In...
-                  </>
-                ) : (
-                  <>
-                    Sign In <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </Button>
-            </form>
-
-            {/* Switch to Signup */}
-            <div className="mt-8 text-center text-xs text-gray-500">
-              Don't have an account?{" "}
-              <Link
-                to="/signup"
-                className="font-bold text-[#F05323] hover:underline"
-              >
-                Create an account
-              </Link>
-            </div>
-          </div>
-
-          {/* Security Badge */}
-          <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
-            <ShieldCheck className="w-4 h-4 text-gray-400" />
-            <span>Secured with cryptographic JWT role-based access</span>
+            {/* 7. Footer Disclaimer */}
+            <p className="text-[11px] text-slate-500 text-center mt-7 leading-relaxed">
+              By signing in, you agree to our{" "}
+              <a href="#" className="font-semibold text-slate-700 hover:underline">
+                Terms of Use
+              </a>{" "}
+              and{" "}
+              <a href="#" className="font-semibold text-slate-700 hover:underline">
+                Privacy Policy
+              </a>
+            </p>
           </div>
         </div>
-      </main>
+      </div>
 
-      {/* Role Selection Modal for New Google Users */}
+      {/* =========================================================================
+          ROLE SELECTION MODAL (For New Google Users)
+          ========================================================================= */}
       {pendingGoogleCredential && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-100 space-y-4 animate-in zoom-in-95 duration-200">
-            <h3 className="text-lg font-extrabold text-gray-900 text-center">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-bold text-slate-900 text-center">
               Complete Your Registration
             </h3>
-            <p className="text-xs text-gray-500 text-center">
-              It looks like you are new here! Please select your role to continue with Google.
+            <p className="text-xs text-slate-500 text-center leading-relaxed">
+              Please select whether you are a Candidate or Recruiter to continue.
             </p>
             <div className="grid grid-cols-2 gap-3 mt-4">
               <button
+                type="button"
                 onClick={() => handleGoogleSuccess(pendingGoogleCredential, "CANDIDATE")}
-                className="p-3 rounded-2xl border border-gray-200 hover:border-emerald-500 bg-gray-50/50 hover:bg-emerald-50/40 transition-all text-center"
+                className="p-3.5 rounded-2xl border border-slate-200 hover:border-emerald-500 bg-slate-50/50 hover:bg-emerald-50/40 transition-all text-center cursor-pointer group"
               >
-                <h4 className="font-bold text-xs text-gray-900">Candidate</h4>
+                <h4 className="font-bold text-xs text-slate-900 group-hover:text-emerald-700">Candidate</h4>
+                <p className="text-[10px] text-slate-400 mt-1">Take assessments</p>
               </button>
               <button
+                type="button"
                 onClick={() => handleGoogleSuccess(pendingGoogleCredential, "RECRUITER")}
-                className="p-3 rounded-2xl border border-gray-200 hover:border-[#F05323] bg-gray-50/50 hover:bg-orange-50/40 transition-all text-center"
+                className="p-3.5 rounded-2xl border border-slate-200 hover:border-[#F05323] bg-slate-50/50 hover:bg-orange-50/40 transition-all text-center cursor-pointer group"
               >
-                <h4 className="font-bold text-xs text-gray-900">Recruiter</h4>
+                <h4 className="font-bold text-xs text-slate-900 group-hover:text-[#F05323]">Recruiter</h4>
+                <p className="text-[10px] text-slate-400 mt-1">Manage workspaces</p>
               </button>
             </div>
             <Button
@@ -346,18 +349,8 @@ export const LoginPage = () => {
           </div>
         </div>
       )}
-
-      {/* 3. Footer */}
-      <footer className="bg-white border-t border-gray-200 py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-400 gap-4">
-          <p>© 2026 EVIDENCE. Unified Technical Assessment Platform.</p>
-          <div className="flex space-x-6">
-            <Link to="/#overview" className="hover:text-gray-600">Home</Link>
-            <Link to="/#how-it-works" className="hover:text-gray-600">How It Works</Link>
-            <Link to="/#portals" className="hover:text-gray-600">Role Portals</Link>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };
+
+export default LoginPage;

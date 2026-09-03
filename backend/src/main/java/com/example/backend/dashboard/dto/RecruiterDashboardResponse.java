@@ -16,4 +16,5 @@ public class RecruiterDashboardResponse {
     private long assessmentCount;
     private long activeAssessments;
     private long completedAssessments;
+    private long selectedCandidates;
 }

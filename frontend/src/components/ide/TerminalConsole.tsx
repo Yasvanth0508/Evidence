@@ -107,7 +107,7 @@ export const TerminalConsole = ({
 
       {/* Console Output Log Stream (hidden if collapsed) */}
       {!isCollapsed && (
-        <div className="flex-1 p-4 overflow-y-auto space-y-1 text-xs leading-relaxed selection:bg-orange-600 selection:text-white">
+        <div className="flex-1 p-4 overflow-y-auto space-y-1 text-xs leading-relaxed selection:bg-primary selection:text-white">
           {logs.length === 0 ? (
             <div className="text-gray-500 italic">
               Click "Run Build" in the top bar to compile and start your Spring Boot application...

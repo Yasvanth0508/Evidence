@@ -53,7 +53,9 @@ export const CandidateDetailPage = () => {
   const [isAstDrawerOpen, setIsAstDrawerOpen] = useState(false);
   const [activeInspectAssessment, setActiveInspectAssessment] = useState<any>(null);
   const [activeProgressAssessment, setActiveProgressAssessment] = useState<any>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);  const [successToast, setSuccessToast] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSelectionLoading, setIsSelectionLoading] = useState(false);
+  const [successToast, setSuccessToast] = useState("");
   const [lastCreatedAssessmentId, setLastCreatedAssessmentId] = useState<string | undefined>();
 
   // Add Assessment Form State
@@ -154,10 +156,31 @@ export const CandidateDetailPage = () => {
     // 3. Fetch all assessments
     refreshWorkspaceAssessments();
 
+    // 4. Sync DB selection status for this candidate in this workspace
+    reportService
+      .getSelectedCandidates(workspaceId)
+      .then((selectedList) => {
+        if (isMounted && Array.isArray(selectedList)) {
+          const matched = selectedList.find(
+            (sc) =>
+              sc.candidateId === candidateId ||
+              (candidate?.email && sc.candidateEmail?.toLowerCase() === candidate.email.toLowerCase())
+          );
+          if (matched) {
+            updateSelectionStatus(candidateId, true, (matched.selectionStatus as any) || "SELECTED");
+          } else {
+            updateSelectionStatus(candidateId, false);
+          }
+        }
+      })
+      .catch((err) => {
+        console.debug("Backend selected candidates sync:", err);
+      });
+
     return () => {
       isMounted = false;
     };
-  }, [workspaceId, refreshWorkspaceAssessments, getWorkspaceById, createWorkspace, createAndAddCandidate]);
+  }, [workspaceId, candidateId, candidate?.email, refreshWorkspaceAssessments, getWorkspaceById, createWorkspace, createAndAddCandidate, updateSelectionStatus]);
 
   if (!candidate || !workspace) {
     return (
@@ -616,7 +639,7 @@ export const CandidateDetailPage = () => {
                     }}
                     className={`text-xs font-bold gap-2 transition-all ${
                       ["CREATING", "ANALYZING", "GENERATING_FEATURE", "GENERATING_TESTS"].includes(asmt.status)
-                        ? "border-primary-border dark:border-orange-800 bg-primary-light/90 dark:bg-primary/25 text-primary dark:text-primary hover:bg-primary-light shadow-xs"
+                        ? "border-primary-border dark:border-primary/30 bg-primary-light/90 dark:bg-primary/25 text-primary dark:text-primary hover:bg-primary-light shadow-xs"
                         : "border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800"
                     }`}
                   >

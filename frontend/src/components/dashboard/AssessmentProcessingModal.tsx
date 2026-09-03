@@ -378,7 +378,7 @@ export const AssessmentProcessingModal = ({
                     </span>
                   )}
                   {isRunning && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-700 dark:text-primary bg-primary-light dark:bg-primary/25 px-2.5 py-0.5 rounded-full">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary bg-primary-light dark:bg-primary/25 px-2.5 py-0.5 rounded-full">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       Running
                     </span>

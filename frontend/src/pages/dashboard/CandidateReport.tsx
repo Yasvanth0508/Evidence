@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useCandidateReport } from "@/hooks/useCandidates";
 import { ScoreProgressCircle } from "@/components/candidate/ScoreProgressCircle";
@@ -18,6 +18,8 @@ import {
   Loader2,
   Sparkles,
   UserCheck2,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 import { AstAnalysisDrawer } from "@/components/dashboard/AstAnalysisDrawer";
 import { reportService } from "@/services/reportService";
@@ -28,6 +30,32 @@ export const CandidateReport = () => {
   const [isAstDrawerOpen, setIsAstDrawerOpen] = useState(false);
   const [isSelected, setIsSelected] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  useEffect(() => {
+    if (!data?.workspaceId || !data?.candidate?.id) return;
+    reportService
+      .getSelectedCandidates(data.workspaceId)
+      .then((selectedList) => {
+        if (Array.isArray(selectedList)) {
+          const isCandSelected = selectedList.some(
+            (sc) =>
+              sc.candidateId === data.candidate.id ||
+              sc.assessmentId === id ||
+              (data.candidate.email && sc.candidateEmail?.toLowerCase() === data.candidate.email.toLowerCase())
+          );
+          setIsSelected(isCandSelected);
+        }
+      })
+      .catch((err) => {
+        console.debug("Backend candidate selection check skipped:", err);
+      });
+  }, [data?.workspaceId, data?.candidate?.id, data?.candidate?.email, id]);
 
   const handleSelectCandidate = async () => {
     if (!data?.candidate?.id || isSelecting) return;
@@ -45,6 +73,7 @@ export const CandidateReport = () => {
           });
         }
         setIsSelected(true);
+        showToast(`${data.candidate.name} marked as Selected for hire!`);
       } else {
         // Deselect
         if (data.workspaceId) {
@@ -54,11 +83,12 @@ export const CandidateReport = () => {
           );
         }
         setIsSelected(false);
+        showToast(`${data.candidate.name} removed from selected candidates.`);
       }
     } catch (e) {
       console.error("Select/deselect candidate error:", e);
-      // Optimistically toggle anyway for UX
       setIsSelected((prev) => !prev);
+      showToast("Selection state updated.");
     } finally {
       setIsSelecting(false);
     }
@@ -113,6 +143,17 @@ export const CandidateReport = () => {
 
   return (
     <div className="space-y-6">
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 animate-in slide-in-from-top duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <span>{toastMessage}</span>
+          <button onClick={() => setToastMessage(null)} className="ml-2 text-emerald-600 hover:text-emerald-900">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* 1. Header with Breadcrumbs & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -131,16 +172,26 @@ export const CandidateReport = () => {
         <div className="flex items-center gap-3">
           <Button
             size="sm"
-            className={`gap-1.5 text-xs font-semibold shadow-2xs ${
+            className={`gap-1.5 text-xs font-semibold shadow-2xs transition-colors ${
               isSelected
                 ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                 : "bg-primary hover:bg-primary-hover text-white"
             }`}
             onClick={handleSelectCandidate}
-            disabled={isSelecting || isSelected}
+            disabled={isSelecting}
           >
-            <UserCheck2 className="w-3.5 h-3.5" />
-            <span>{isSelected ? "Selected for Hire ✓" : isSelecting ? "Selecting..." : "Select for Hire"}</span>
+            {isSelecting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <UserCheck2 className="w-3.5 h-3.5" />
+            )}
+            <span>
+              {isSelecting
+                ? "Updating..."
+                : isSelected
+                ? "Selected for Hire ✓"
+                : "Select for Hire"}
+            </span>
           </Button>
 
           <Button

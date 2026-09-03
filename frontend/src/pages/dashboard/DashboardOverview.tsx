@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useHRStore } from "@/store/hrStore";
 import { workspaceService } from "@/services/workspaceService";
 import { dashboardService, RecruiterDashboardData } from "@/services/dashboardService";
+import { reportService } from "@/services/reportService";
 import { Button } from "@/components/ui/button";
 import {
   Folder,
@@ -30,6 +31,7 @@ export const DashboardOverview = () => {
   } = useHRStore();
 
   const [backendMetrics, setBackendMetrics] = useState<RecruiterDashboardData | null>(null);
+  const [selectedCount, setSelectedCount] = useState<number | null>(null);
 
   // Sync backend workspaces & metrics on load
   useEffect(() => {
@@ -60,10 +62,24 @@ export const DashboardOverview = () => {
       .then((data) => {
         if (isMounted && data) {
           setBackendMetrics(data);
+          if (typeof data.selectedCandidates === "number") {
+            setSelectedCount(data.selectedCandidates);
+          }
         }
       })
       .catch((err) => {
         console.debug("Backend dashboard metrics fetch skipped:", err.message);
+      });
+
+    reportService
+      .getSelectedCandidates()
+      .then((list) => {
+        if (isMounted && Array.isArray(list)) {
+          setSelectedCount(list.length);
+        }
+      })
+      .catch((err) => {
+        console.debug("Selected candidates count fetch skipped:", err);
       });
 
     return () => {
@@ -77,7 +93,7 @@ export const DashboardOverview = () => {
     totalCandidates: backendMetrics?.totalCandidates ?? localMetrics.totalCandidates,
     candidatesAssigned: backendMetrics?.totalAssessments ?? localMetrics.candidatesAssigned,
     completedAssessments: backendMetrics?.completedAssessments ?? localMetrics.completedAssessments,
-    selectedCandidates: localMetrics.selectedCandidates,
+    selectedCandidates: selectedCount ?? backendMetrics?.selectedCandidates ?? localMetrics.selectedCandidates,
     avgScore: localMetrics.avgScore,
   };
 

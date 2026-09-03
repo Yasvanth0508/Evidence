@@ -4,6 +4,7 @@ import com.example.backend.assessment.repository.AssessmentRepository;
 import com.example.backend.auth.entity.User;
 import com.example.backend.common.enums.AssessmentStatus;
 import com.example.backend.dashboard.dto.RecruiterDashboardResponse;
+import com.example.backend.workspace.repository.SelectedCandidateRepository;
 import com.example.backend.workspace.repository.WorkspaceCandidateRepository;
 import com.example.backend.workspace.repository.WorkspaceRepository;
 import com.example.backend.workspace.service.WorkspaceService;
@@ -23,6 +24,7 @@ public class RecruiterDashboardService {
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceCandidateRepository workspaceCandidateRepository;
+    private final SelectedCandidateRepository selectedCandidateRepository;
     private final AssessmentRepository assessmentRepository;
     private final WorkspaceService workspaceService;
 
@@ -33,6 +35,7 @@ public class RecruiterDashboardService {
         long workspaceCount = workspaceRepository.countByRecruiterId(recruiter.getId());
         long candidateCount = workspaceCandidateRepository.countDistinctCandidatesByRecruiterId(recruiter.getId());
         long assessmentCount = assessmentRepository.countByRecruiterId(recruiter.getId());
+        long selectedCandidates = selectedCandidateRepository.countByRecruiterId(recruiter.getId());
 
         List<AssessmentStatus> activeStatuses = List.of(
                 AssessmentStatus.CREATING,
@@ -53,6 +56,7 @@ public class RecruiterDashboardService {
                 .assessmentCount(assessmentCount)
                 .activeAssessments(activeAssessments)
                 .completedAssessments(completedAssessments)
+                .selectedCandidates(selectedCandidates)
                 .build();
     }
 }

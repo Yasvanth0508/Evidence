@@ -154,7 +154,7 @@ export const CandidatePerformanceReportPage = () => {
         <div className="bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-2xs transition-colors">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-primary-light/80 dark:bg-primary/25 border border-primary-border dark:border-orange-800 text-primary dark:text-primary flex items-center justify-center font-black text-lg shadow-sm">
+              <div className="w-14 h-14 rounded-2xl bg-primary-light/80 dark:bg-primary/25 border border-primary-border dark:border-primary/30 text-primary dark:text-primary flex items-center justify-center font-black text-lg shadow-sm">
                 {initials}
               </div>
               <div>

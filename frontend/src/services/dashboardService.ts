@@ -6,6 +6,7 @@ export interface RecruiterDashboardData {
   totalAssessments: number;
   activeAssessments: number;
   completedAssessments: number;
+  selectedCandidates?: number;
 }
 
 export interface CandidateDashboardData {

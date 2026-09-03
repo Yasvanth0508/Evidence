@@ -5,7 +5,8 @@ import com.example.backend.assessment.entity.AssessmentWorkspace;
 import com.example.backend.assessment.repository.AssessmentRepository;
 import com.example.backend.assessment.repository.AssessmentWorkspaceRepository;
 import com.example.backend.pipeline.git.dto.GitCloneResult;
-import com.example.backend.pipeline.storage.RepositoryStorageService;
+import com.example.backend.pipeline.workspace.FileService;
+import com.example.backend.pipeline.workspace.WorkspacePathService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -28,16 +29,19 @@ public class GitCloningService {
     private final AssessmentWorkspaceRepository workspaceRepository;
     private final AssessmentRepository assessmentRepository;
     private final GitRepositoryClient gitClient;
-    private final RepositoryStorageService storageService;
+    private final WorkspacePathService workspacePathService;
+    private final FileService fileService;
 
     public GitCloningService(AssessmentWorkspaceRepository workspaceRepository,
                              AssessmentRepository assessmentRepository,
                              GitRepositoryClient gitClient,
-                             RepositoryStorageService storageService) {
+                             WorkspacePathService workspacePathService,
+                             FileService fileService) {
         this.workspaceRepository = workspaceRepository;
         this.assessmentRepository = assessmentRepository;
         this.gitClient = gitClient;
-        this.storageService = storageService;
+        this.workspacePathService = workspacePathService;
+        this.fileService = fileService;
     }
 
     @Transactional
@@ -45,11 +49,11 @@ public class GitCloningService {
         log.info("Phase 1: Starting Git Clone for Assessment ID: {} | URL: {} | Branch: {}",
                 assessmentId, repositoryUrl, branchName);
 
-        Path targetDir = storageService.resolveAssessmentOriginalPath(assessmentId);
+        Path targetDir = workspacePathService.resolveOriginalRepoPath(assessmentId);
 
         try {
-            storageService.deleteDirectoryRecursively(targetDir);
-            storageService.createDirectories(targetDir.getParent());
+            fileService.deleteRecursively(targetDir);
+            fileService.createDirectory(targetDir.getParent());
 
             String branchToClone = (branchName != null && !branchName.trim().isEmpty()) ? branchName.trim() : "main";
 

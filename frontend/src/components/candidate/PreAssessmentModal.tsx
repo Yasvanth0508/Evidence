@@ -85,7 +85,7 @@ export const PreAssessmentModal = ({
             <h4 className="text-sm font-extrabold text-gray-900">
               {assessment.title}
             </h4>
-            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-primary-light text-orange-800 border border-primary-border">
+            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-primary-light text-primary border border-primary-border">
               {assessment.difficulty}
             </span>
           </div>

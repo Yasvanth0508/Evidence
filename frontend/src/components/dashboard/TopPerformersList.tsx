@@ -31,7 +31,7 @@ export const TopPerformersList = ({ performers }: TopPerformersListProps) => {
         );
       case 3:
         return (
-          <div className="w-6 h-6 rounded-full bg-primary-light flex items-center justify-center text-orange-700 font-bold text-xs shadow-xs">
+          <div className="w-6 h-6 rounded-full bg-primary-light flex items-center justify-center text-primary font-bold text-xs shadow-xs">
             <Medal className="w-3.5 h-3.5" />
           </div>
         );

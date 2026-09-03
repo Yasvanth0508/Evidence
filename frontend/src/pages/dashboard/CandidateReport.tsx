@@ -17,18 +17,57 @@ import {
   ArrowLeft,
   Loader2,
   Sparkles,
+  UserCheck2,
 } from "lucide-react";
 import { AstAnalysisDrawer } from "@/components/dashboard/AstAnalysisDrawer";
+import { reportService } from "@/services/reportService";
 
 export const CandidateReport = () => {
   const { id = "" } = useParams<{ id: string }>();
   const { data, isLoading, error, refetch } = useCandidateReport(id);
   const [isAstDrawerOpen, setIsAstDrawerOpen] = useState(false);
+  const [isSelected, setIsSelected] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false);
+
+  const handleSelectCandidate = async () => {
+    if (!data?.candidate?.id || isSelecting) return;
+    setIsSelecting(true);
+    try {
+      if (!isSelected) {
+        // Mark as selected
+        if (data.workspaceId) {
+          await reportService.selectCandidate({
+            workspaceId: data.workspaceId,
+            candidateId: data.candidate.id,
+            assessmentId: id,
+            selectionStatus: "SELECTED",
+            selectionNotes: `Selected from candidate evaluation report. Score: ${data.scoreOverview.overallScore}%.`,
+          });
+        }
+        setIsSelected(true);
+      } else {
+        // Deselect
+        if (data.workspaceId) {
+          await reportService.removeSelectedCandidateByWorkspaceAndCandidate(
+            data.workspaceId,
+            data.candidate.id
+          );
+        }
+        setIsSelected(false);
+      }
+    } catch (e) {
+      console.error("Select/deselect candidate error:", e);
+      // Optimistically toggle anyway for UX
+      setIsSelected((prev) => !prev);
+    } finally {
+      setIsSelecting(false);
+    }
+  };
 
   if (isLoading) {
     return (
       <div className="h-96 flex flex-col items-center justify-center space-y-3">
-        <Loader2 className="w-8 h-8 text-[#F05323] animate-spin" />
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
         <span className="text-xs font-semibold text-gray-500">
           Loading Candidate Assessment Report...
         </span>
@@ -62,7 +101,7 @@ export const CandidateReport = () => {
           <Link to="/dashboard">
             <Button
               size="sm"
-              className="text-xs font-semibold bg-[#F05323] hover:bg-[#d94417] text-white"
+              className="text-xs font-semibold bg-primary hover:bg-primary-hover text-white"
             >
               Back to Dashboard
             </Button>
@@ -74,39 +113,50 @@ export const CandidateReport = () => {
 
   return (
     <div className="space-y-6">
-      {/* 1. Header with Breadcrumb and Actions */}
+      {/* 1. Header with Breadcrumbs & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <Link
-            to="/dashboard"
-            className="text-xs font-semibold text-gray-500 hover:text-gray-900 inline-flex items-center gap-1.5 mb-1 transition-colors"
+            to="/dashboard/reports"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-2"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Candidates</span>
+            <span>Back to Assessment Reports</span>
           </Link>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
-            Candidate Report
+          <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+            Candidate Assessment Report
           </h1>
-          <p className="text-xs text-gray-500">
-            Detailed assessment results and performance analysis.
-          </p>
         </div>
 
         <div className="flex items-center gap-3">
           <Button
+            size="sm"
+            className={`gap-1.5 text-xs font-semibold shadow-2xs ${
+              isSelected
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                : "bg-primary hover:bg-primary-hover text-white"
+            }`}
+            onClick={handleSelectCandidate}
+            disabled={isSelecting || isSelected}
+          >
+            <UserCheck2 className="w-3.5 h-3.5" />
+            <span>{isSelected ? "Selected for Hire ✓" : isSelecting ? "Selecting..." : "Select for Hire"}</span>
+          </Button>
+
+          <Button
             variant="outline"
             size="sm"
-            className="gap-1.5 text-xs font-bold text-[#F05323] border-orange-200 hover:bg-orange-50"
+            className="gap-1.5 text-xs font-semibold text-primary dark:text-primary border-primary-border dark:border-primary/30 bg-primary-light/60 dark:bg-primary/20 hover:bg-primary-light/70 dark:hover:bg-primary/30"
             onClick={() => setIsAstDrawerOpen(true)}
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#F05323]" />
+            <Sparkles className="w-3.5 h-3.5 text-primary dark:text-primary" />
             <span>Inspect AST & AI Feature Spec</span>
           </Button>
 
           <Button
             variant="outline"
             size="sm"
-            className="gap-1.5 text-xs font-semibold text-gray-700"
+            className="gap-1.5 text-xs font-semibold text-gray-700 dark:text-slate-200 border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800"
             onClick={() => alert("Share link copied to clipboard!")}
           >
             <Users className="w-3.5 h-3.5" />
@@ -116,51 +166,51 @@ export const CandidateReport = () => {
       </div>
 
       {/* 2. Candidate Meta Info Card */}
-      <div className="bg-white border border-gray-200/90 rounded-2xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 rounded-2xl p-6 shadow-sm transition-colors">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           {/* Avatar & Candidate Name */}
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-purple-100/80 border border-purple-200 text-purple-700 flex items-center justify-center font-bold text-lg shadow-sm">
+            <div className="w-14 h-14 rounded-full bg-purple-100/80 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-lg shadow-sm">
               {data.candidate.avatarInitials}
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h2 className="text-lg font-extrabold text-gray-900 leading-tight">
+                <h2 className="text-lg font-extrabold text-gray-900 dark:text-white leading-tight">
                   {data.candidate.name}
                 </h2>
                 <Badge variant="completed" dot>
                   {data.candidate.status}
                 </Badge>
               </div>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
                 {data.candidate.email}
               </p>
             </div>
           </div>
 
           {/* Project Details Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-4 md:pt-0 border-t md:border-t-0 border-gray-100 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-4 md:pt-0 border-t md:border-t-0 border-gray-100 dark:border-slate-800 text-xs">
             <div>
-              <span className="text-gray-400 font-medium block">Project</span>
-              <span className="font-semibold text-gray-800 block mt-0.5">
+              <span className="text-gray-400 dark:text-slate-500 font-medium block">Project</span>
+              <span className="font-semibold text-gray-800 dark:text-slate-200 block mt-0.5">
                 {data.project.name}
               </span>
             </div>
             <div>
-              <span className="text-gray-400 font-medium block">Tech Stack</span>
-              <span className="font-semibold text-gray-800 block mt-0.5">
+              <span className="text-gray-400 dark:text-slate-500 font-medium block">Tech Stack</span>
+              <span className="font-semibold text-gray-800 dark:text-slate-200 block mt-0.5">
                 {data.project.techStack}
               </span>
             </div>
             <div>
-              <span className="text-gray-400 font-medium block">Date</span>
-              <span className="font-semibold text-gray-800 block mt-0.5">
+              <span className="text-gray-400 dark:text-slate-500 font-medium block">Date</span>
+              <span className="font-semibold text-gray-800 dark:text-slate-200 block mt-0.5">
                 {data.project.date}
               </span>
             </div>
             <div>
-              <span className="text-gray-400 font-medium block">Total Time Taken</span>
-              <span className="font-semibold text-gray-800 block mt-0.5 font-mono">
+              <span className="text-gray-400 dark:text-slate-500 font-medium block">Total Time Taken</span>
+              <span className="font-semibold text-gray-800 dark:text-slate-200 block mt-0.5 font-mono">
                 {data.project.totalTimeTaken}
               </span>
             </div>
@@ -169,8 +219,8 @@ export const CandidateReport = () => {
       </div>
 
       {/* 3. Score Overview Grid (Radial Circle + 3 Metric Blocks) */}
-      <div className="bg-white border border-gray-200/90 rounded-2xl p-6 shadow-sm">
-        <h3 className="font-bold text-gray-900 text-base mb-6">Score Overview</h3>
+      <div className="bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 rounded-2xl p-6 shadow-sm transition-colors">
+        <h3 className="font-bold text-gray-900 dark:text-white text-base mb-6">Score Overview</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-center">
           {/* Block 1: Radial Progress Meter */}
@@ -182,37 +232,37 @@ export const CandidateReport = () => {
           </div>
 
           {/* Block 2: Bugs Fixed */}
-          <div className="flex flex-col items-center justify-center p-4 bg-gray-50/70 border border-gray-100 rounded-2xl text-center space-y-2 h-36">
-            <div className="w-9 h-9 rounded-full bg-rose-100/70 text-rose-600 flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center p-4 bg-gray-50/70 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl text-center space-y-2 h-36">
+            <div className="w-9 h-9 rounded-full bg-rose-100/70 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
               <Bug className="w-4 h-4" />
             </div>
-            <div className="text-xs font-medium text-gray-500">Bugs Fixed</div>
-            <div className="text-2xl font-extrabold text-gray-900 font-mono">
-              <span className="text-rose-600">{data.scoreOverview.bugsFixed.fixed}</span>
-              <span className="text-gray-400 text-lg"> / {data.scoreOverview.bugsFixed.total}</span>
+            <div className="text-xs font-medium text-gray-500 dark:text-slate-400">Bugs Fixed</div>
+            <div className="text-2xl font-extrabold text-gray-900 dark:text-white font-mono">
+              <span className="text-rose-600 dark:text-rose-400">{data.scoreOverview.bugsFixed.fixed}</span>
+              <span className="text-gray-400 dark:text-slate-500 text-lg"> / {data.scoreOverview.bugsFixed.total}</span>
             </div>
           </div>
 
           {/* Block 3: Test Cases Passed */}
-          <div className="flex flex-col items-center justify-center p-4 bg-gray-50/70 border border-gray-100 rounded-2xl text-center space-y-2 h-36">
-            <div className="w-9 h-9 rounded-full bg-emerald-100/70 text-emerald-600 flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center p-4 bg-gray-50/70 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl text-center space-y-2 h-36">
+            <div className="w-9 h-9 rounded-full bg-emerald-100/70 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
               <ShieldCheck className="w-4 h-4" />
             </div>
-            <div className="text-xs font-medium text-gray-500">Test Cases Passed</div>
-            <div className="text-2xl font-extrabold text-gray-900 font-mono">
-              <span className="text-emerald-600">{data.scoreOverview.testCasesPassed.passed}</span>
-              <span className="text-gray-400 text-lg"> / {data.scoreOverview.testCasesPassed.total}</span>
+            <div className="text-xs font-medium text-gray-500 dark:text-slate-400">Test Cases Passed</div>
+            <div className="text-2xl font-extrabold text-gray-900 dark:text-white font-mono">
+              <span className="text-emerald-600 dark:text-emerald-400">{data.scoreOverview.testCasesPassed.passed}</span>
+              <span className="text-gray-400 dark:text-slate-500 text-lg"> / {data.scoreOverview.testCasesPassed.total}</span>
             </div>
           </div>
 
           {/* Block 4: Total Time Taken */}
-          <div className="flex flex-col items-center justify-center p-4 bg-gray-50/70 border border-gray-100 rounded-2xl text-center space-y-2 h-36">
-            <div className="w-9 h-9 rounded-full bg-purple-100/70 text-purple-600 flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center p-4 bg-gray-50/70 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl text-center space-y-2 h-36">
+            <div className="w-9 h-9 rounded-full bg-purple-100/70 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
               <Clock className="w-4 h-4" />
             </div>
-            <div className="text-xs font-medium text-gray-500">Total Time Taken</div>
-            <div className="text-2xl font-extrabold text-gray-900 font-mono">
-              {data.scoreOverview.totalTimeTakenMinutes} <span className="text-sm font-normal text-gray-500">mins</span>
+            <div className="text-xs font-medium text-gray-500 dark:text-slate-400">Total Time Taken</div>
+            <div className="text-2xl font-extrabold text-gray-900 dark:text-white font-mono">
+              {data.scoreOverview.totalTimeTakenMinutes} <span className="text-sm font-normal text-gray-500 dark:text-slate-400">mins</span>
             </div>
           </div>
         </div>

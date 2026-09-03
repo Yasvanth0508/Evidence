@@ -4,6 +4,7 @@ import {
   Calendar,
   Bell,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
 
 interface TopbarProps {
   title?: string;
@@ -45,36 +46,39 @@ export const Topbar = ({ title, subtitle }: TopbarProps) => {
   }
 
   return (
-    <header className="h-20 bg-white border-b border-gray-200/80 px-6 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
+    <header className="h-20 bg-white dark:bg-slate-900 border-b border-gray-200/80 dark:border-slate-800 px-6 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-2xs transition-colors duration-200">
       {/* Title & Subtitle */}
       <div>
-        <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight leading-tight">
+        <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight leading-tight">
           {displayTitle}
         </h1>
         {displaySubtitle && (
-          <p className="text-xs text-gray-500 font-medium">{displaySubtitle}</p>
+          <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">{displaySubtitle}</p>
         )}
       </div>
 
       {/* Action Controls & User Profile */}
       <div className="flex items-center gap-3">
         {/* Date Filter Badge */}
-        <div className="hidden lg:flex items-center gap-2 h-9 px-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-700 shadow-2xs">
-          <Calendar className="w-3.5 h-3.5 text-gray-500" />
+        <div className="hidden lg:flex items-center gap-2 h-9 px-3 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-xs font-medium text-gray-700 dark:text-slate-300 shadow-2xs">
+          <Calendar className="w-3.5 h-3.5 text-gray-500 dark:text-slate-400" />
           <span>{dateRange}</span>
         </div>
 
         {/* Notifications */}
         <button
           type="button"
-          className="relative w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center text-gray-500 transition-colors"
+          className="relative w-9 h-9 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center justify-center text-gray-500 dark:text-slate-400 transition-colors"
           title="Notifications"
         >
           <Bell className="w-4 h-4" />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#F05323]"></span>
+          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary"></span>
         </button>
 
-        <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block"></div>
+        {/* Dark Mode Theme Switcher */}
+        <ThemeToggle size="md" />
+
+        <div className="h-6 w-px bg-gray-200 dark:bg-slate-700 mx-1 hidden sm:block"></div>
 
         {/* User Avatar & Info */}
         <div className="flex items-center gap-3 pl-1">
@@ -84,13 +88,13 @@ export const Topbar = ({ title, subtitle }: TopbarProps) => {
               "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
             }
             alt={user?.name || "User Avatar"}
-            className="w-9 h-9 rounded-full object-cover border border-orange-200 shadow-2xs"
+            className="w-9 h-9 rounded-full object-cover border border-primary-border dark:border-primary/30 shadow-2xs"
           />
           <div className="hidden md:block text-left">
-            <span className="text-xs font-bold text-gray-900 block leading-tight">
+            <span className="text-xs font-bold text-gray-900 dark:text-slate-100 block leading-tight">
               {user?.name || "Rahul Sharma"}
             </span>
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">
+            <span className="text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider block">
               {user?.role || "HR RECRUITER"}
             </span>
           </div>

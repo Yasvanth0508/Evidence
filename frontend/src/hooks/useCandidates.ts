@@ -8,8 +8,9 @@ export const useCandidates = () => {
     queryKey: ["candidates"],
     queryFn: async () => {
       const reportsRes = await reportService.getReports({ page: 0, size: 50 });
-      if (reportsRes.reports && reportsRes.reports.length > 0) {
-        return reportsRes.reports.map((r) => ({
+      const list = reportsRes.content || reportsRes.reports || [];
+      if (list.length > 0) {
+        return list.map((r) => ({
           id: r.candidateId,
           assessmentId: r.assessmentId,
           name: r.candidateName,
@@ -18,7 +19,7 @@ export const useCandidates = () => {
           role: "Full Stack Engineer",
           score: r.score,
           status: r.status === "COMPLETED" ? ("completed" as const) : ("in_progress" as const),
-          completedAt: r.completedAt,
+          completedAt: r.completedAt || r.submittedAt,
         }));
       }
       return [];
@@ -33,7 +34,7 @@ export const useCandidateReport = (assessmentId: string) => {
       // 1. Fetch report, test results, and fallback assessment details in parallel
       const [reportRes, testResultsRes, assessmentRes] = await Promise.all([
         reportService.getReportById(assessmentId).catch(() => null),
-        reportService.getTestResults(assessmentId).catch(() => ({ assessmentId, testResults: [] })),
+        reportService.getTestResults(assessmentId).catch(() => []),
         assessmentService.getAssessmentById(assessmentId).catch(() => null),
       ]);
 
@@ -83,40 +84,52 @@ export const useCandidateReport = (assessmentId: string) => {
           ? Math.round((passedTests / totalTests) * 100)
           : 0;
 
-      // Compute dynamic category breakdown from real test results
-      const categoryMap = new Map<string, { total: number; passed: number }>();
-      mappedTestCases.forEach((tc) => {
-        const catName: "Business Logic" | "Syntax" | "Data Flow" =
-          tc.testType === "SYNTAX" ? "Syntax" : tc.testType === "DATA_FLOW" ? "Data Flow" : "Business Logic";
-        const cur = categoryMap.get(catName) || { total: 0, passed: 0 };
-        cur.total += 1;
-        if (tc.status === "PASSED") cur.passed += 1;
-        categoryMap.set(catName, cur);
-      });
+      // Compute dynamic category breakdown from real test results or backend categoryBreakdown
+      let dynamicBugBreakdown: any[] = [];
+      if (Array.isArray(report?.categoryBreakdown) && report.categoryBreakdown.length > 0) {
+        dynamicBugBreakdown = report.categoryBreakdown.map((cat: any, idx: number) => ({
+          id: idx + 1,
+          category: cat.category as "Business Logic" | "Syntax" | "Data Flow",
+          issueType: `${cat.category} Verification (${cat.passed}/${cat.total} Passed)`,
+          status: (cat.passed > 0 ? "FIXED" : "NOT_FIXED") as "FIXED" | "NOT_FIXED",
+          score: cat.score,
+          maxScore: 100,
+        }));
+      } else {
+        const categoryMap = new Map<string, { total: number; passed: number }>();
+        mappedTestCases.forEach((tc) => {
+          const catName: "Business Logic" | "Syntax" | "Data Flow" =
+            tc.testType === "SYNTAX" ? "Syntax" : tc.testType === "DATA_FLOW" ? "Data Flow" : "Business Logic";
+          const cur = categoryMap.get(catName) || { total: 0, passed: 0 };
+          cur.total += 1;
+          if (tc.status === "PASSED") cur.passed += 1;
+          categoryMap.set(catName, cur);
+        });
 
-      const dynamicBugBreakdown =
-        categoryMap.size > 0
-          ? Array.from(categoryMap.entries()).map(([cat, counts], idx) => {
-              const catScore = counts.total > 0 ? Math.round((counts.passed / counts.total) * 100) : 0;
-              return {
-                id: idx + 1,
-                category: cat as "Business Logic" | "Syntax" | "Data Flow",
-                issueType: `${cat} Assertions & Test Verification (${counts.passed}/${counts.total} Passed)`,
-                status: (counts.passed > 0 ? "FIXED" : "NOT_FIXED") as "FIXED" | "NOT_FIXED",
-                score: catScore,
-                maxScore: 100,
-              };
-            })
-          : [
-              {
-                id: 1,
-                category: "Business Logic" as const,
-                issueType: `Functional Requirements Verification (${passedTests}/${totalTests} Passed)`,
-                status: (passedTests > 0 ? "FIXED" : "NOT_FIXED") as "FIXED" | "NOT_FIXED",
-                score: rawScore,
-                maxScore: 100,
-              },
-            ];
+        dynamicBugBreakdown =
+          categoryMap.size > 0
+            ? Array.from(categoryMap.entries()).map(([cat, counts], idx) => {
+                const catScore = counts.total > 0 ? Math.round((counts.passed / counts.total) * 100) : 0;
+                return {
+                  id: idx + 1,
+                  category: cat as "Business Logic" | "Syntax" | "Data Flow",
+                  issueType: `${cat} Assertions & Test Verification (${counts.passed}/${counts.total} Passed)`,
+                  status: (counts.passed > 0 ? "FIXED" : "NOT_FIXED") as "FIXED" | "NOT_FIXED",
+                  score: catScore,
+                  maxScore: 100,
+                };
+              })
+            : [
+                {
+                  id: 1,
+                  category: "Business Logic" as const,
+                  issueType: `Functional Requirements Verification (${passedTests}/${totalTests} Passed)`,
+                  status: (passedTests > 0 ? "FIXED" : "NOT_FIXED") as "FIXED" | "NOT_FIXED",
+                  score: rawScore,
+                  maxScore: 100,
+                },
+              ];
+      }
 
       const candidateName =
         report?.candidate?.name ||
@@ -139,34 +152,42 @@ export const useCandidateReport = (assessmentId: string) => {
         assessment?.candidate?.id ||
         "";
 
-      const initials = candidateName
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2) || "CD";
+      const initials =
+        report?.candidate?.avatarInitials ||
+        candidateName
+          .split(" ")
+          .map((n: string) => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2) || "CD";
 
       const scoreRating: "Excellent" | "Good Performance" | "Needs Improvement" =
-        rawScore >= 80
+        report?.scoreRating ||
+        (rawScore >= 80
           ? "Excellent"
           : rawScore >= 60
           ? "Good Performance"
-          : "Needs Improvement";
+          : "Needs Improvement");
 
       const timeTakenMinutes =
-        typeof report?.timeTakenSeconds === "number"
+        typeof report?.timeTakenMinutes === "number"
+          ? report.timeTakenMinutes
+          : typeof report?.timeTakenSeconds === "number"
           ? Math.max(1, Math.round(report.timeTakenSeconds / 60))
           : typeof report?.totalTimeTakenMinutes === "number"
           ? report.totalTimeTakenMinutes
           : 25;
 
       const projectName =
+        report?.title ||
+        assessment?.title ||
         assessment?.projectName ||
         report?.workspaceName ||
-        (assessment?.title ? `${assessment.title}` : "Spring Boot REST API Assessment");
+        "Spring Boot REST API Assessment";
 
       return {
         id: report?.assessmentId || assessmentId,
+        workspaceId: report?.workspaceId || assessment?.workspaceId || assessment?.workspace?.id,
         candidate: {
           id: candidateId,
           name: candidateName,
@@ -176,7 +197,7 @@ export const useCandidateReport = (assessmentId: string) => {
         },
         project: {
           name: projectName,
-          techStack: "Java 21, Spring Boot, Maven, PostgreSQL",
+          techStack: report?.techStack || "Java 21, Spring Boot, Maven, PostgreSQL",
           date: report?.evaluatedAt
             ? new Date(report.evaluatedAt).toLocaleDateString()
             : report?.completedAt
@@ -212,7 +233,7 @@ export const useCandidateReport = (assessmentId: string) => {
           report?.improvements && report.improvements.length > 0
             ? report.improvements
             : ["Edge Case Exception Handling", "Response Body Schema Validation"],
-        integrity: {
+        integrity: report?.integrity || {
           overallRiskBadge: "LOW",
           behaviorSummary: {
             copyPasteEvents: 0,
@@ -223,6 +244,16 @@ export const useCandidateReport = (assessmentId: string) => {
           riskAnalysis: "No suspicious activity detected. Valid coding session verified.",
         },
       };
+    },
+    enabled: Boolean(assessmentId),
+  });
+};
+
+export const useCandidatePersonalReport = (assessmentId: string) => {
+  return useQuery({
+    queryKey: ["candidate-personal-report", assessmentId],
+    queryFn: async () => {
+      return await reportService.getCandidateResult(assessmentId);
     },
     enabled: Boolean(assessmentId),
   });

@@ -37,7 +37,8 @@ export const ScoreProgressCircle = ({
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke="#E2E8F0"
+            stroke="currentColor"
+            className="text-gray-200 dark:text-slate-700"
             strokeWidth={strokeWidth}
             fill="transparent"
           />
@@ -58,16 +59,16 @@ export const ScoreProgressCircle = ({
 
         {/* Center Text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500">
             Overall Score
           </span>
           <div className="flex items-baseline gap-0.5">
-            <span className="text-3xl font-extrabold text-gray-900 leading-none">
+            <span className="text-3xl font-extrabold text-gray-900 dark:text-white leading-none">
               {score}
             </span>
-            <span className="text-xs text-gray-400 font-semibold">/100</span>
+            <span className="text-xs text-gray-400 dark:text-slate-500 font-semibold">/100</span>
           </div>
-          <span className="text-[10px] font-bold text-emerald-600 mt-1">
+          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
             {rating}
           </span>
         </div>

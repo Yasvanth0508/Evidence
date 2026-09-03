@@ -11,6 +11,7 @@ import { ReportsPage } from "@/pages/dashboard/ReportsPage";
 import { SelectedCandidatesPage } from "@/pages/dashboard/SelectedCandidatesPage";
 import { CandidateReport } from "@/pages/dashboard/CandidateReport";
 import { CandidateDashboard } from "@/pages/candidate/CandidateDashboard";
+import { CandidatePerformanceReportPage } from "@/pages/candidate/CandidatePerformanceReportPage";
 import { AssessmentWorkspace } from "@/pages/assessment/AssessmentWorkspace";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
@@ -78,6 +79,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["CANDIDATE"]}>
         <CandidateDashboard />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/candidate/assessments/:id/report",
+    element: (
+      <ProtectedRoute allowedRoles={["CANDIDATE"]}>
+        <CandidatePerformanceReportPage />
       </ProtectedRoute>
     ),
   },

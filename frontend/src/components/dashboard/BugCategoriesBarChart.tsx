@@ -15,13 +15,13 @@ interface BugCategoriesBarChartProps {
 
 export const BugCategoriesBarChart = ({ data }: BugCategoriesBarChartProps) => {
   return (
-    <div className="bg-white border border-gray-200/90 rounded-2xl p-6 shadow-sm flex flex-col justify-between h-full">
+    <div className="bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between h-full transition-colors">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-gray-900 text-base">
+        <h3 className="font-bold text-gray-900 dark:text-white text-base">
           Most Failed Bug Categories
         </h3>
-        <select className="text-xs font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-[#F05323]">
+        <select className="text-xs font-semibold text-gray-600 dark:text-slate-300 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary">
           <option>All Time</option>
           <option>This Month</option>
           <option>This Week</option>
@@ -41,13 +41,13 @@ export const BugCategoriesBarChart = ({ data }: BugCategoriesBarChartProps) => {
               domain={[0, 100]}
               tickFormatter={(val) => `${val}%`}
               tick={{ fontSize: 10, fill: "#94A3B8" }}
-              axisLine={{ stroke: "#E2E8F0" }}
+              axisLine={{ stroke: "#334155" }}
               tickLine={false}
             />
             <YAxis
               type="category"
               dataKey="category"
-              tick={{ fontSize: 11, fill: "#334155", fontWeight: 500 }}
+              tick={{ fontSize: 11, fill: "#94A3B8", fontWeight: 500 }}
               axisLine={false}
               tickLine={false}
               width={140}
@@ -55,10 +55,10 @@ export const BugCategoriesBarChart = ({ data }: BugCategoriesBarChartProps) => {
             <Tooltip
               formatter={(value: any) => [`${value}% Failure Rate`, "Rate"]}
               contentStyle={{
-                backgroundColor: "#1E293B",
+                backgroundColor: "#0F172A",
                 borderRadius: "10px",
                 color: "#FFFFFF",
-                border: "none",
+                border: "1px solid #334155",
                 fontSize: "12px",
               }}
               itemStyle={{ color: "#FFFFFF" }}
@@ -70,7 +70,7 @@ export const BugCategoriesBarChart = ({ data }: BugCategoriesBarChartProps) => {
               label={{
                 position: "right",
                 formatter: (val: any) => `${val}%`,
-                fill: "#475569",
+                fill: "#94A3B8",
                 fontSize: 11,
                 fontWeight: 600,
               }}
@@ -83,7 +83,7 @@ export const BugCategoriesBarChart = ({ data }: BugCategoriesBarChartProps) => {
         </ResponsiveContainer>
       </div>
 
-      <div className="text-[11px] text-gray-400 text-center mt-1">
+      <div className="text-[11px] text-gray-400 dark:text-slate-500 text-center mt-1">
         Failure Rate (%)
       </div>
     </div>

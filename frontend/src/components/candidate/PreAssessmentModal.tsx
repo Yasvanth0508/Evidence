@@ -58,7 +58,7 @@ export const PreAssessmentModal = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#F05323] flex items-center justify-center font-bold">
+            <div className="w-12 h-12 rounded-2xl bg-primary-light text-primary flex items-center justify-center font-bold">
               <Code2 className="w-6 h-6" />
             </div>
             <div>
@@ -85,7 +85,7 @@ export const PreAssessmentModal = ({
             <h4 className="text-sm font-extrabold text-gray-900">
               {assessment.title}
             </h4>
-            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800 border border-orange-200">
+            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-primary-light text-orange-800 border border-primary-border">
               {assessment.difficulty}
             </span>
           </div>
@@ -143,7 +143,7 @@ export const PreAssessmentModal = ({
               type="checkbox"
               checked={confirmedRules}
               onChange={(e) => setConfirmedRules(e.target.checked)}
-              className="w-4 h-4 rounded text-[#F05323] focus:ring-[#F05323] border-amber-300"
+              className="w-4 h-4 rounded text-primary focus:ring-primary border-amber-300"
             />
             <span>I have read the instructions and am ready to start my timed session.</span>
           </label>
@@ -164,7 +164,7 @@ export const PreAssessmentModal = ({
             size="sm"
             disabled={!confirmedRules || isInitializing}
             onClick={handleStart}
-            className="bg-[#F05323] hover:bg-[#d94416] text-white text-xs font-bold gap-2 px-5 py-2.5 shadow-md shadow-orange-500/20"
+            className="bg-primary hover:bg-primary-hover text-white text-xs font-bold gap-2 px-5 py-2.5 shadow-md shadow-[var(--theme-primary-shadow)]"
           >
             {isInitializing ? (
               <>

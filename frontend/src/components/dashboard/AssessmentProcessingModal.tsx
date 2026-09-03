@@ -144,30 +144,47 @@ export const AssessmentProcessingModal = ({
           setStages((prev) =>
             prev.map((s) => (s.status === "RUNNING" ? { ...s, status: "FAILED" } : s))
           );
-          setLogMessages((prev) => [
-            ...prev,
-            `[ERROR] Assessment processing pipeline encountered a failure during execution.`,
-          ]);
+          setLogMessages((prev) => {
+            if (!prev.some((m) => m.includes("failure during execution"))) {
+              return [
+                ...prev,
+                `[ERROR] Assessment processing pipeline encountered a failure during execution.`,
+              ];
+            }
+            return prev;
+          });
           return true;
         }
 
         setStages((prev) =>
           prev.map((s, idx) => {
             if (isAllReady) return { ...s, status: "COMPLETED" };
+            if (status === "CREATING") {
+              if (idx === 0) return { ...s, status: "RUNNING" };
+              return { ...s, status: "PENDING" };
+            }
+            if (status === "ANALYZING") {
+              if (idx === 0) return { ...s, status: "COMPLETED" };
+              if (idx === 1) return { ...s, status: isAstDone ? "COMPLETED" : "RUNNING" };
+              if (idx === 2) return { ...s, status: isAstDone ? "COMPLETED" : "RUNNING" };
+              return { ...s, status: "PENDING" };
+            }
+            if (status === "GENERATING_FEATURE") {
+              if (idx <= 2) return { ...s, status: "COMPLETED" };
+              if (idx === 3) return { ...s, status: isFeatureDone ? "COMPLETED" : "RUNNING" };
+              return { ...s, status: "PENDING" };
+            }
+            if (status === "GENERATING_TESTS") {
+              if (idx <= 3) return { ...s, status: "COMPLETED" };
+              if (idx === 4) return { ...s, status: isTestCasesDone ? "COMPLETED" : "RUNNING" };
+              return { ...s, status: "PENDING" };
+            }
+            // Default fallback
             if (idx === 0) return { ...s, status: "COMPLETED" };
-            if (idx === 1) return { ...s, status: (status === "ANALYZING" || isAstDone) ? "COMPLETED" : "RUNNING" };
-            if (idx === 2) {
-              if (isAstDone) return { ...s, status: "COMPLETED" };
-              return { ...s, status: (status === "ANALYZING" || status === "CREATING") ? "RUNNING" : "PENDING" };
-            }
-            if (idx === 3) {
-              if (isFeatureDone) return { ...s, status: "COMPLETED" };
-              return { ...s, status: (status === "GENERATING_FEATURE" || isAstDone) ? "RUNNING" : "PENDING" };
-            }
-            if (idx === 4) {
-              if (isTestCasesDone) return { ...s, status: "COMPLETED" };
-              return { ...s, status: (status === "GENERATING_TESTS" || isFeatureDone) ? "RUNNING" : "PENDING" };
-            }
+            if (idx === 1) return { ...s, status: isAstDone ? "COMPLETED" : "RUNNING" };
+            if (idx === 2) return { ...s, status: isAstDone ? "COMPLETED" : "RUNNING" };
+            if (idx === 3) return { ...s, status: isFeatureDone ? "COMPLETED" : "PENDING" };
+            if (idx === 4) return { ...s, status: isTestCasesDone ? "COMPLETED" : "PENDING" };
             return s;
           })
         );
@@ -210,13 +227,18 @@ export const AssessmentProcessingModal = ({
         if (isAllReady) {
           setStages((prev) => prev.map((s) => ({ ...s, status: "COMPLETED" })));
           setIsCompleted(true);
-          setLogMessages((prev) => [
-            ...prev,
-            `[SUCCESS] Phase 3: AST codebase extraction completed.`,
-            `[SUCCESS] Phase 4: Mistral AI feature specification synthesized.`,
-            `[SUCCESS] Phase 5: Automated Black-Box verification suite generated.`,
-            `[SUCCESS] Assessment pipeline status transitioned to READY.`,
-          ]);
+          setLogMessages((prev) => {
+            if (!prev.some((m) => m.includes("status transitioned to READY"))) {
+              return [
+                ...prev,
+                `[SUCCESS] Phase 3: AST codebase extraction completed.`,
+                `[SUCCESS] Phase 4: Mistral AI feature specification synthesized.`,
+                `[SUCCESS] Phase 5: Automated Black-Box verification suite generated.`,
+                `[SUCCESS] Assessment pipeline status transitioned to READY.`,
+              ];
+            }
+            return prev;
+          });
           if (onComplete) onComplete();
           return true;
         }
@@ -256,15 +278,15 @@ export const AssessmentProcessingModal = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-6 animate-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-gray-100 dark:border-slate-800 space-y-6 animate-in zoom-in-95 duration-200 transition-colors">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+        <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-slate-800">
           <div className="flex items-center gap-3">
             <div
               className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold transition-colors ${
                 isCompleted
-                  ? "bg-emerald-50 text-emerald-600"
-                  : "bg-orange-50 text-[#F05323]"
+                  ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400"
+                  : "bg-primary-light dark:bg-primary/25 text-primary dark:text-primary"
               }`}
             >
               {isCompleted ? (
@@ -275,7 +297,7 @@ export const AssessmentProcessingModal = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-extrabold text-gray-900">
+                <h3 className="text-lg font-extrabold text-gray-900 dark:text-white">
                   {isCompleted
                     ? "Assessment Pipeline Ready!"
                     : "Preparing Assessment Pipeline"}
@@ -283,27 +305,27 @@ export const AssessmentProcessingModal = ({
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                     isCompleted
-                      ? "bg-emerald-100 text-emerald-800"
-                      : "bg-blue-100 text-blue-800 animate-pulse"
+                      ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300"
+                      : "bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 animate-pulse"
                   }`}
                 >
                   {isCompleted ? "READY" : "PROCESSING"}
                 </span>
               </div>
-              <p className="text-xs text-gray-500 font-mono truncate max-w-md">
+              <p className="text-xs text-gray-500 dark:text-slate-400 font-mono truncate max-w-md">
                 {assessmentTitle} • {repositoryUrl}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-xs font-mono text-gray-500 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-200">
-              <Clock className="w-3.5 h-3.5 text-gray-400" />
+            <div className="flex items-center gap-1 text-xs font-mono text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-gray-200 dark:border-slate-700">
+              <Clock className="w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
               <span>{elapsedSeconds}s</span>
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
+              className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 flex items-center justify-center text-gray-500 dark:text-slate-400 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -322,47 +344,47 @@ export const AssessmentProcessingModal = ({
                 key={stage.id}
                 className={`p-3.5 rounded-2xl border transition-all duration-300 flex items-center justify-between ${
                   isDone
-                    ? "bg-emerald-50/40 border-emerald-200"
+                    ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60"
                     : isRunning
-                    ? "bg-orange-50/50 border-[#F05323]/50 shadow-xs"
-                    : "bg-gray-50/60 border-gray-200 opacity-60"
+                    ? "bg-primary-light/50 dark:bg-primary/15 border-primary/50 shadow-xs"
+                    : "bg-gray-50/60 dark:bg-slate-800/40 border-gray-200 dark:border-slate-700/60 opacity-60"
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div
                     className={`w-9 h-9 rounded-xl flex items-center justify-center ${
                       isDone
-                        ? "bg-emerald-100 text-emerald-700"
+                        ? "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300"
                         : isRunning
-                        ? "bg-[#F05323] text-white animate-pulse"
-                        : "bg-gray-200 text-gray-400"
+                        ? "bg-primary text-white animate-pulse"
+                        : "bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-400"
                     }`}
                   >
                     <Icon className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-extrabold text-gray-900">
+                    <h4 className="text-xs font-extrabold text-gray-900 dark:text-white">
                       {stage.name}
                     </h4>
-                    <p className="text-[11px] text-gray-500">{stage.description}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-slate-400">{stage.description}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   {isDone && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Done
                     </span>
                   )}
                   {isRunning && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-700 bg-orange-100 px-2.5 py-0.5 rounded-full">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-700 dark:text-primary bg-primary-light dark:bg-primary/25 px-2.5 py-0.5 rounded-full">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       Running
                     </span>
                   )}
                   {!isDone && !isRunning && (
-                    <span className="text-[11px] font-medium text-gray-400">
+                    <span className="text-[11px] font-medium text-gray-400 dark:text-slate-500">
                       Pending
                     </span>
                   )}
@@ -376,7 +398,7 @@ export const AssessmentProcessingModal = ({
         <div>
           <button
             onClick={() => setShowLogs(!showLogs)}
-            className="text-xs font-semibold text-gray-600 hover:text-gray-900 inline-flex items-center gap-1.5"
+            className="text-xs font-semibold text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white inline-flex items-center gap-1.5 cursor-pointer"
           >
             <Terminal className="w-3.5 h-3.5" />
             <span>{showLogs ? "Hide" : "Show"} Pipeline Console Stream</span>
@@ -401,32 +423,20 @@ export const AssessmentProcessingModal = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-gray-100">
-          <p className="text-xs text-gray-500">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-gray-100 dark:border-slate-800">
+          <p className="text-xs text-gray-500 dark:text-slate-400">
             {isCompleted
               ? "All 5 pipeline stages finished. Codebase and tests are ready."
               : "Asynchronous background orchestrator active."}
           </p>
 
           <div className="flex items-center gap-2">
-            {isCompleted && assessmentId && (
-              <a
-                href={`/assessment/${assessmentId}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F05323] hover:bg-[#d94417] text-white text-xs font-bold shadow-xs transition-colors"
-              >
-                <FileCode className="w-3.5 h-3.5" />
-                Launch Assessment IDE
-              </a>
-            )}
-
             <Button
               onClick={onClose}
               className={`text-xs font-bold ${
                 isCompleted
-                  ? "bg-gray-900 hover:bg-black text-white"
-                  : "bg-[#F05323] hover:bg-[#d94416] text-white"
+                  ? "bg-gray-900 hover:bg-black dark:bg-slate-800 dark:hover:bg-slate-700 text-white"
+                  : "bg-primary hover:bg-primary-hover text-white"
               }`}
             >
               {isCompleted ? "Done" : "Keep Running in Background"}

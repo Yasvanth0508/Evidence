@@ -9,11 +9,11 @@ export const AssessmentDonutChart = ({ data }: AssessmentDonutChartProps) => {
   const totalCount = data.reduce((sum, item) => sum + item.count, 0);
 
   return (
-    <div className="bg-white border border-gray-200/90 rounded-2xl p-6 shadow-sm flex flex-col justify-between h-full">
+    <div className="bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between h-full transition-colors">
       {/* Card Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-gray-900 text-base">Assessment Status</h3>
-        <select className="text-xs font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-[#F05323]">
+        <h3 className="font-bold text-gray-900 dark:text-white text-base">Assessment Status</h3>
+        <select className="text-xs font-semibold text-gray-600 dark:text-slate-300 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary">
           <option>All Time</option>
           <option>This Month</option>
           <option>This Week</option>
@@ -33,8 +33,8 @@ export const AssessmentDonutChart = ({ data }: AssessmentDonutChartProps) => {
                 innerRadius={55}
                 outerRadius={80}
                 paddingAngle={3}
-                stroke="#FFFFFF"
-                strokeWidth={2}
+                stroke="#1E293B"
+                strokeWidth={1}
               >
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
@@ -46,10 +46,10 @@ export const AssessmentDonutChart = ({ data }: AssessmentDonutChartProps) => {
                   name,
                 ]}
                 contentStyle={{
-                  backgroundColor: "#1E293B",
+                  backgroundColor: "#0F172A",
                   borderRadius: "10px",
                   color: "#FFFFFF",
-                  border: "none",
+                  border: "1px solid #334155",
                   fontSize: "12px",
                 }}
                 itemStyle={{ color: "#FFFFFF" }}
@@ -59,10 +59,10 @@ export const AssessmentDonutChart = ({ data }: AssessmentDonutChartProps) => {
 
           {/* Centered Total Overlay */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-            <span className="text-xl font-extrabold text-gray-900 leading-tight">
+            <span className="text-xl font-extrabold text-gray-900 dark:text-white leading-tight">
               {totalCount.toLocaleString()}
             </span>
-            <span className="text-[11px] font-semibold text-gray-400 uppercase">
+            <span className="text-[11px] font-semibold text-gray-400 dark:text-slate-500 uppercase">
               Total
             </span>
           </div>
@@ -80,13 +80,13 @@ export const AssessmentDonutChart = ({ data }: AssessmentDonutChartProps) => {
                   className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: item.color }}
                 />
-                <span className="font-semibold text-gray-700">{item.name}</span>
+                <span className="font-semibold text-gray-700 dark:text-slate-300">{item.name}</span>
               </div>
               <div className="text-right font-mono">
-                <span className="font-bold text-gray-900">
+                <span className="font-bold text-gray-900 dark:text-white">
                   {item.count.toLocaleString()}
                 </span>{" "}
-                <span className="text-gray-400 text-[11px]">
+                <span className="text-gray-400 dark:text-slate-500 text-[11px]">
                   ({item.percentage}%)
                 </span>
               </div>

@@ -11,7 +11,7 @@ export const DashboardLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] flex font-sans">
+    <div className="min-h-screen bg-[#F9FAFB] dark:bg-[#0B0F19] text-gray-900 dark:text-slate-100 flex font-sans transition-colors duration-200">
       {/* Fixed Left Sidebar */}
       <Sidebar />
 

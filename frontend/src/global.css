@@ -1,0 +1,102 @@
+﻿/* ==========================================================================
+   Evidence Global Theme Configuration
+   Single Source of Truth for Brand Colors
+   ========================================================================== */
+
+:root {
+  /* Brand Theme Color: #1515A5
+     To change the entire app theme, change this variable and its variants */
+  --theme-primary: #1515A5;
+  --theme-primary-hover: #0E0E75;
+  --theme-primary-light: #EEF0FF;
+  --theme-primary-border: #C7C8FA;
+  --theme-primary-foreground: #FFFFFF;
+  --theme-primary-ring: #1515A5;
+  --theme-primary-text-accent: #1515A5;
+  --theme-primary-shadow: rgba(21, 21, 165, 0.25);
+
+  /* HSL for Tailwind / shadcn compatibility (240deg, 77%, 36%) */
+  --primary: 240 77% 36%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 240 77% 36%;
+}
+
+.dark {
+  /* Dark mode brand theme color with enhanced contrast */
+  --theme-primary: #4E4EFF;
+  --theme-primary-hover: #3838D6;
+  --theme-primary-light: rgba(21, 21, 165, 0.25);
+  --theme-primary-border: rgba(142, 142, 255, 0.35);
+  --theme-primary-foreground: #FFFFFF;
+  --theme-primary-ring: #4E4EFF;
+  --theme-primary-text-accent: #8E8EFF;
+  --theme-primary-shadow: rgba(78, 78, 255, 0.3);
+
+  --primary: 240 100% 65%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 240 100% 65%;
+}
+
+/* ==========================================================================
+   Global Semantic Theme Classes
+   ========================================================================== */
+.theme-bg-primary {
+  background-color: var(--theme-primary) !important;
+  color: var(--theme-primary-foreground) !important;
+}
+
+.theme-bg-hover:hover {
+  background-color: var(--theme-primary-hover) !important;
+}
+
+.theme-bg-light {
+  background-color: var(--theme-primary-light) !important;
+}
+
+.theme-text-primary {
+  color: var(--theme-primary) !important;
+}
+
+.theme-text-accent {
+  color: var(--theme-primary-text-accent) !important;
+}
+
+.theme-border-primary {
+  border-color: var(--theme-primary) !important;
+}
+
+.theme-border-light {
+  border-color: var(--theme-primary-border) !important;
+}
+
+.theme-ring-primary {
+  --tw-ring-color: var(--theme-primary-ring) !important;
+}
+
+/* ==========================================================================
+   Global Attribute Selectors for Declarative Theming
+   ========================================================================== */
+[data-theme="primary"] {
+  color: var(--theme-primary);
+}
+
+[data-theme-bg="primary"] {
+  background-color: var(--theme-primary);
+  color: var(--theme-primary-foreground);
+}
+
+[data-theme-bg="primary"]:hover {
+  background-color: var(--theme-primary-hover);
+}
+
+[data-theme-bg="light"] {
+  background-color: var(--theme-primary-light);
+}
+
+[data-theme-border="primary"] {
+  border-color: var(--theme-primary);
+}
+
+[data-theme-border="light"] {
+  border-color: var(--theme-primary-border);
+}

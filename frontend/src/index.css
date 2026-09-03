@@ -1,21 +1,23 @@
 @import "tailwindcss";
+@import "./global.css";
+
+/* Enable class-based dark mode in Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
-    --background: 0 0% 98%;      /* #FAFAFA */
-    --foreground: 222.2 84% 4.9%; /* #020817 */
+    --background: 0 0% 98%;        /* #FAFAFA */
+    --foreground: 222.2 84% 4.9%;   /* #020817 */
 
-    --card: 0 0% 100%;           /* #FFFFFF */
+    --card: 0 0% 100%;             /* #FFFFFF */
     --card-foreground: 222.2 84% 4.9%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    /* Evidence Orange: #F05323 */
-    --primary: 14 88% 54%;
-    --primary-foreground: 0 0% 100%;
+    /* Evidence Primary Brand Theme: #1515A5 (controlled by global.css) */
 
-    --secondary: 210 40% 96.1%;  /* #F1F5F9 */
+    --secondary: 210 40% 96.1%;    /* #F1F5F9 */
     --secondary-foreground: 222.2 47.4% 11.2%;
 
     --muted: 210 40% 96.1%;
@@ -24,21 +26,57 @@
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
 
-    --destructive: 0 84.2% 60.2%; /* #EF4444 */
+    --destructive: 0 84.2% 60.2%;   /* #EF4444 */
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;  /* #E2E8F0 */
+    --border: 214.3 31.8% 91.4%;    /* #E2E8F0 */
     --input: 214.3 31.8% 91.4%;
-    --ring: 14 88% 54%;
 
     --radius: 0.75rem; /* 12px rounded-xl */
+  }
+
+  .dark {
+    --background: 222.2 47.4% 7%;   /* #0B0F19 deep slate */
+    --foreground: 210 40% 98%;      /* #F8FAFC */
+
+    --card: 222.2 47.4% 10%;        /* #0F172A */
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 47.4% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    --secondary: 217.2 32.6% 17.5%; /* #1E293B */
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%; /* #94A3B8 */
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;    /* #1E293B / slate-800 */
+    --input: 217.2 32.6% 17.5%;
   }
 }
 
 @theme {
-  --color-evidence-orange: #F05323;
-  --color-evidence-orange-hover: #D94418;
-  --color-evidence-orange-light: #FFF5F2;
+  --color-primary: var(--theme-primary);
+  --color-primary-hover: var(--theme-primary-hover);
+  --color-primary-light: var(--theme-primary-light);
+  --color-primary-border: var(--theme-primary-border);
+  --color-brand: var(--theme-primary);
+  --color-brand-hover: var(--theme-primary-hover);
+  --color-brand-light: var(--theme-primary-light);
+  --color-brand-border: var(--theme-primary-border);
+
+  --color-evidence-primary: var(--theme-primary);
+  --color-evidence-primary-hover: var(--theme-primary-hover);
+  --color-evidence-primary-light: var(--theme-primary-light);
+  --color-evidence-primary-border: var(--theme-primary-border);
+
   --color-evidence-green: #10B981;
   --color-evidence-green-light: #ECFDF5;
   --color-evidence-red: #EF4444;
@@ -54,10 +92,25 @@
   --color-evidence-bg: #F9FAFB;
 }
 
+html.dark {
+  color-scheme: dark;
+}
+
 body {
   background-color: #F9FAFB;
   color: #111827;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.dark body {
+  background-color: #0B0F19;
+  color: #F1F5F9;
+}
+
+/* Ensure common background container color smoothly converts in dark mode */
+.dark .bg-\[\#F9FAFB\] {
+  background-color: #0B0F19 !important;
 }
 
 /* Custom scrollbars for dashboard and terminal */
@@ -78,3 +131,12 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+

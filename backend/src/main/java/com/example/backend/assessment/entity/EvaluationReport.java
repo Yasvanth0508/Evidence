@@ -4,6 +4,8 @@ import com.example.backend.common.enums.ApplicationStatus;
 import com.example.backend.common.enums.BuildStatus;
 import com.example.backend.common.enums.SubmissionStatus;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.domain.Persistable;
 
 import java.math.BigDecimal;
@@ -12,6 +14,8 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "evaluation_reports")
+@Getter
+@Setter
 public class EvaluationReport implements Persistable<UUID> {
 
     @Id
@@ -26,6 +30,9 @@ public class EvaluationReport implements Persistable<UUID> {
     @Column(name = "score", precision = 5, scale = 2, nullable = false)
     private BigDecimal score = BigDecimal.ZERO;
 
+    @Column(name = "score_rating", length = 50)
+    private String scoreRating = "Needs Improvement";
+
     @Column(name = "total_tests", nullable = false)
     private Integer totalTests = 0;
 
@@ -34,6 +41,48 @@ public class EvaluationReport implements Persistable<UUID> {
 
     @Column(name = "failed_tests", nullable = false)
     private Integer failedTests = 0;
+
+    @Column(name = "business_logic_total")
+    private Integer businessLogicTotal = 0;
+
+    @Column(name = "business_logic_passed")
+    private Integer businessLogicPassed = 0;
+
+    @Column(name = "syntax_total")
+    private Integer syntaxTotal = 0;
+
+    @Column(name = "syntax_passed")
+    private Integer syntaxPassed = 0;
+
+    @Column(name = "data_flow_total")
+    private Integer dataFlowTotal = 0;
+
+    @Column(name = "data_flow_passed")
+    private Integer dataFlowPassed = 0;
+
+    @Column(name = "ai_summary", columnDefinition = "TEXT")
+    private String aiSummary;
+
+    @Column(name = "strengths_json", columnDefinition = "TEXT")
+    private String strengthsJson;
+
+    @Column(name = "improvements_json", columnDefinition = "TEXT")
+    private String improvementsJson;
+
+    @Column(name = "copy_paste_events")
+    private Integer copyPasteEvents = 0;
+
+    @Column(name = "tab_switch_count")
+    private Integer tabSwitchCount = 0;
+
+    @Column(name = "build_runs")
+    private Integer buildRuns = 1;
+
+    @Column(name = "risk_analysis", columnDefinition = "TEXT")
+    private String riskAnalysis;
+
+    @Column(name = "overall_risk_badge", length = 20)
+    private String overallRiskBadge = "LOW";
 
     @Enumerated(EnumType.STRING)
     @Column(name = "build_status", nullable = false, length = 50)

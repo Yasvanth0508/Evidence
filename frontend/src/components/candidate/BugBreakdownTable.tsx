@@ -42,7 +42,7 @@ export const BugBreakdownTable = ({ bugs, testCases }: BugBreakdownTableProps) =
         );
       case "Syntax":
         return (
-          <div className="w-6 h-6 rounded-lg bg-orange-50 text-[#F05323] flex items-center justify-center">
+          <div className="w-6 h-6 rounded-lg bg-primary-light text-primary flex items-center justify-center">
             <Code2 className="w-3.5 h-3.5" />
           </div>
         );
@@ -57,37 +57,37 @@ export const BugBreakdownTable = ({ bugs, testCases }: BugBreakdownTableProps) =
   };
 
   return (
-    <div className="bg-white border border-gray-200/90 rounded-2xl p-6 shadow-sm space-y-4">
+    <div className="bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4 transition-colors">
       {/* Header with View Toggle */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-100 dark:border-slate-800">
         <div>
-          <h3 className="font-bold text-gray-900 text-base">
+          <h3 className="font-bold text-gray-900 dark:text-white text-base">
             Evaluation Results & Test Verification
           </h3>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-slate-400">
             {viewMode === "SUMMARY"
               ? "Aggregated scoring per bug category"
               : "Granular black-box HTTP test case execution logs"}
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl">
+        <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
           <button
             onClick={() => setViewMode("SUMMARY")}
-            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
               viewMode === "SUMMARY"
-                ? "bg-white text-gray-900 shadow-2xs"
-                : "text-gray-600 hover:text-gray-900"
+                ? "bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-2xs"
+                : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
             Category Summary
           </button>
           <button
             onClick={() => setViewMode("TEST_AUDIT")}
-            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
               viewMode === "TEST_AUDIT"
-                ? "bg-white text-[#F05323] shadow-2xs"
-                : "text-gray-600 hover:text-gray-900"
+                ? "bg-white dark:bg-slate-700 text-primary dark:text-primary shadow-2xs"
+                : "text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
             Detailed Test Cases Audit ({testCases?.length || 0})
@@ -109,45 +109,45 @@ export const BugBreakdownTable = ({ bugs, testCases }: BugBreakdownTableProps) =
             </TableHeader>
             <TableBody>
               {bugs.map((bug) => (
-                <TableRow key={bug.id} className="hover:bg-gray-50/70">
-                  <TableCell className="font-semibold text-gray-500 text-xs">
+                <TableRow key={bug.id} className="hover:bg-gray-50/70 dark:hover:bg-slate-800/60">
+                  <TableCell className="font-semibold text-gray-500 dark:text-slate-400 text-xs">
                     {bug.id}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2 font-medium text-xs text-gray-800">
+                    <div className="flex items-center gap-2 font-medium text-xs text-gray-800 dark:text-slate-200">
                       {getCategoryIcon(bug.category)}
                       <span>{bug.category}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs text-gray-700 font-medium">
+                  <TableCell className="text-xs text-gray-700 dark:text-slate-300 font-medium">
                     {bug.issueType}
                   </TableCell>
                   <TableCell>
                     {bug.status === "FIXED" ? (
                       <Badge variant="fixed" className="gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         <span>Fixed</span>
                       </Badge>
                     ) : (
                       <Badge variant="notFixed" className="gap-1">
-                        <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                        <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                         <span>Not Fixed</span>
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-xs font-semibold text-gray-900">
-                    {bug.score} <span className="text-gray-400 font-normal">/ {bug.maxScore}</span>
+                  <TableCell className="text-right font-mono text-xs font-semibold text-gray-900 dark:text-white">
+                    {bug.score} <span className="text-gray-400 dark:text-slate-500 font-normal">/ {bug.maxScore}</span>
                   </TableCell>
                 </TableRow>
               ))}
 
               {/* Total Row */}
-              <TableRow className="border-t-2 border-gray-100 bg-gray-50/40 font-bold">
-                <TableCell colSpan={4} className="text-xs uppercase tracking-wider text-gray-700">
+              <TableRow className="border-t-2 border-gray-100 dark:border-slate-800 bg-gray-50/40 dark:bg-slate-800/40 font-bold">
+                <TableCell colSpan={4} className="text-xs uppercase tracking-wider text-gray-700 dark:text-slate-300">
                   Total Score
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm text-emerald-700">
-                  {totalScore} <span className="text-gray-400 text-xs font-normal">/ {totalMaxScore}</span>
+                <TableCell className="text-right font-mono text-sm text-emerald-700 dark:text-emerald-400">
+                  {totalScore} <span className="text-gray-400 dark:text-slate-500 text-xs font-normal">/ {totalMaxScore}</span>
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -171,7 +171,7 @@ export const BugBreakdownTable = ({ bugs, testCases }: BugBreakdownTableProps) =
             <TableBody>
               {(!testCases || testCases.length === 0) ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-xs text-gray-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-xs text-gray-500 dark:text-slate-400">
                     No individual test case execution audits available for this assessment yet.
                   </TableCell>
                 </TableRow>
@@ -181,7 +181,7 @@ export const BugBreakdownTable = ({ bugs, testCases }: BugBreakdownTableProps) =
                   const isPassed = tc.status === "PASSED" || (tc as any).passed === true;
                   return (
                     <>
-                      <tr key={tc.id} className="border-b border-gray-100 hover:bg-gray-50/70">
+                      <tr key={tc.id} className="border-b border-gray-100 dark:border-slate-800 hover:bg-gray-50/70 dark:hover:bg-slate-800/60">
                         <TableCell className="font-mono text-xs font-bold text-gray-500">
                           TC-{tc.testCaseNumber}
                         </TableCell>

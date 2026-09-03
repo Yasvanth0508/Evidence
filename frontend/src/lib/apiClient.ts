@@ -40,10 +40,14 @@ apiClient.interceptors.response.use(
       error.message ||
       "An unexpected network error occurred.";
 
-    if (error.response?.status === 401 && !error.config?.url?.includes("/auth/login")) {
+    if (error.response?.status === 401 && !error.config?.url?.includes("/auth/")) {
       console.warn("[API 401 Unauthorized] Session expired or invalid.");
     }
 
-    return Promise.reject(new Error(message));
+    const customError: any = new Error(message);
+    customError.response = error.response;
+    customError.status = error.response?.status;
+    customError.errorCode = error.response?.data?.errorCode;
+    return Promise.reject(customError);
   }
 );

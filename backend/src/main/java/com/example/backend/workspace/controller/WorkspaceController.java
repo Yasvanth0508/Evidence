@@ -5,6 +5,8 @@ import com.example.backend.common.exception.BadRequestException;
 import com.example.backend.common.util.UUIDUtils;
 import com.example.backend.workspace.dto.*;
 import com.example.backend.workspace.service.WorkspaceService;
+import com.example.backend.workspace.service.WorkspaceCandidateService;
+import com.example.backend.workspace.service.WorkspaceDeletionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +26,8 @@ import java.util.UUID;
 public class WorkspaceController {
 
     private final WorkspaceService workspaceService;
+    private final WorkspaceCandidateService workspaceCandidateService;
+    private final WorkspaceDeletionService workspaceDeletionService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<WorkspaceResponse>> createWorkspace(
@@ -85,7 +89,7 @@ public class WorkspaceController {
         }
         if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
         UUID recruiterId = principal.getId();
-        workspaceService.deleteWorkspace(recruiterId, wsId);
+        workspaceDeletionService.deleteWorkspace(recruiterId, wsId);
         return ResponseEntity.ok(ApiResponse.success("Workspace deleted", Map.of("id", wsId)));
     }
 
@@ -99,7 +103,7 @@ public class WorkspaceController {
         }
         if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
         UUID recruiterId = principal.getId();
-        List<WorkspaceCandidateItemResponse> response = workspaceService.getCandidatesInWorkspace(recruiterId, wsId);
+        List<WorkspaceCandidateItemResponse> response = workspaceCandidateService.getCandidatesInWorkspace(recruiterId, wsId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -114,7 +118,7 @@ public class WorkspaceController {
         }
         if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
         UUID recruiterId = principal.getId();
-        WorkspaceCandidateItemResponse response = workspaceService.addCandidateToWorkspace(recruiterId, wsId, request);
+        WorkspaceCandidateItemResponse response = workspaceCandidateService.addCandidateToWorkspace(recruiterId, wsId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Candidate added to workspace", response));
     }
@@ -131,7 +135,7 @@ public class WorkspaceController {
         }
         if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
         UUID recruiterId = principal.getId();
-        workspaceService.removeCandidateFromWorkspace(recruiterId, wsId, candId);
+        workspaceCandidateService.removeCandidateFromWorkspace(recruiterId, wsId, candId);
         return ResponseEntity.ok(ApiResponse.success("Candidate removed from workspace", Map.of(
                 "workspaceId", wsId,
                 "candidateId", candId

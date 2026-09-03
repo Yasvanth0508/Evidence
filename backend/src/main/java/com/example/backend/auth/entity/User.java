@@ -33,12 +33,19 @@ public class User extends BaseEntity {
     @Builder.Default
     private AuthProvider authProvider = AuthProvider.LOCAL;
 
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
+
     public User(String name, String email, String passwordHash, Role role) {
+        this(name, email, passwordHash, role, AuthProvider.LOCAL);
+    }
+
+    public User(String name, String email, String passwordHash, Role role, AuthProvider authProvider) {
         this.name = name;
         this.email = email;
         this.passwordHash = passwordHash;
         this.role = role;
-        this.authProvider = AuthProvider.LOCAL;
+        this.authProvider = authProvider != null ? authProvider : AuthProvider.LOCAL;
     }
 
     // Convenience method for security / legacy callers

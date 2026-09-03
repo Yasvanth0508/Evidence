@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 
 interface GoogleAuthButtonProps {
   onSuccess: (credential: string) => void;
@@ -19,13 +20,22 @@ export const GoogleAuthButton = ({
   text = "continue_with",
   disabled = false,
 }: GoogleAuthButtonProps) => {
-  const buttonRef = useRef<HTMLDivElement>(null);
   const [isGsiLoaded, setIsGsiLoaded] = useState(false);
+  const [isClickLoading, setIsClickLoading] = useState(false);
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+
+  // Keep latest callbacks in refs to avoid re-rendering issues
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+  }, [onSuccess, onError]);
 
   useEffect(() => {
     // If Google GSI is already present on window
-    if (window.google?.accounts?.id) {
+    if (window.google?.accounts?.oauth2 || window.google?.accounts?.id) {
       setIsGsiLoaded(true);
       return;
     }
@@ -42,70 +52,97 @@ export const GoogleAuthButton = ({
       setIsGsiLoaded(false);
     };
     document.body.appendChild(script);
-
-    return () => {
-      // Keep script cached in DOM
-    };
   }, []);
 
-  useEffect(() => {
-    if (!isGsiLoaded || !clientId || !buttonRef.current || !window.google?.accounts?.id) {
+  const handleGoogleClick = () => {
+    if (disabled || isClickLoading) return;
+
+    if (!clientId) {
+      const msg = "Google Client ID is not configured. Please add VITE_GOOGLE_CLIENT_ID to your frontend .env file.";
+      if (onErrorRef.current) {
+        onErrorRef.current(msg);
+      } else {
+        alert(msg);
+      }
       return;
     }
 
-    try {
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: (res: any) => {
-          if (res?.credential) {
-            onSuccess(res.credential);
-          } else if (onError) {
-            onError("Google sign-in did not return a valid credential.");
-          }
-        },
-      });
-
-      buttonRef.current.innerHTML = "";
-      window.google.accounts.id.renderButton(buttonRef.current, {
-        theme: "outline",
-        size: "large",
-        width: 380,
-        text: text,
-        shape: "pill",
-      });
-    } catch (err) {
-      console.warn("Failed to render Google Sign-In button:", err);
-    }
-  }, [isGsiLoaded, clientId, text, onSuccess, onError]);
-
-  const handleCustomGoogleClick = () => {
-    if (disabled) return;
-
-    if (clientId && window.google?.accounts?.id) {
-      window.google.accounts.id.prompt();
-    } else {
-      if (onError) {
-        onError("Google Client ID is not configured. Please add VITE_GOOGLE_CLIENT_ID to your .env file.");
+    if (!isGsiLoaded && !window.google?.accounts?.oauth2 && !window.google?.accounts?.id) {
+      const msg = "Google Identity Services SDK is still loading or was blocked by an ad-blocker. Please refresh.";
+      if (onErrorRef.current) {
+        onErrorRef.current(msg);
       } else {
-        alert("Google Client ID is not configured. Please add VITE_GOOGLE_CLIENT_ID to your .env file.");
+        alert(msg);
       }
+      return;
+    }
+
+    setIsClickLoading(true);
+
+    try {
+      // Use official Google OAuth2 Token Client with forced select_account prompt
+      if (window.google?.accounts?.oauth2) {
+        const client = window.google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: "email profile openid",
+          prompt: "select_account",
+          callback: (response: any) => {
+            setIsClickLoading(false);
+            if (response?.access_token) {
+              onSuccessRef.current(response.access_token);
+            } else if (response?.error) {
+              if (response.error !== "access_denied") {
+                onErrorRef.current?.(`Google sign-in error: ${response.error}`);
+              }
+            }
+          },
+          error_callback: (err: any) => {
+            setIsClickLoading(false);
+            console.warn("Google OAuth error:", err);
+            onErrorRef.current?.("Google authentication popup was closed or interrupted.");
+          },
+        });
+        client.requestAccessToken({ prompt: "select_account" });
+      } else if (window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (res: any) => {
+            setIsClickLoading(false);
+            if (res?.credential) {
+              onSuccessRef.current(res.credential);
+            } else if (onErrorRef.current) {
+              onErrorRef.current("Google sign-in did not return a valid credential.");
+            }
+          },
+        });
+        window.google.accounts.id.prompt();
+      }
+    } catch (err: any) {
+      setIsClickLoading(false);
+      console.error("Failed to launch Google Sign-In:", err);
+      onErrorRef.current?.("Failed to launch Google Sign-In. Please check your browser popup settings.");
     }
   };
 
+  const buttonText =
+    text === "signin_with"
+      ? "Sign in with Google"
+      : text === "signup_with"
+      ? "Sign up with Google"
+      : "Continue with Google";
+
   return (
     <div className="w-full flex justify-center">
-      {/* If Google Client ID is configured and GSI rendered successfully, show Google's official widget */}
-      {clientId && isGsiLoaded ? (
-        <div ref={buttonRef} className="w-full flex justify-center" />
-      ) : (
-        /* Otherwise show high-fidelity branded Google button */
-        <button
-          type="button"
-          onClick={handleCustomGoogleClick}
-          disabled={disabled}
-          className="w-full flex items-center justify-center gap-2.5 h-11 px-4 border border-gray-200 rounded-2xl bg-white hover:bg-gray-50 text-xs font-semibold text-gray-700 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24">
+      <button
+        type="button"
+        onClick={handleGoogleClick}
+        disabled={disabled || isClickLoading}
+        className="w-full flex items-center justify-center gap-2.5 h-11 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-900 hover:bg-gray-50 dark:hover:bg-slate-800 text-xs font-semibold text-gray-700 dark:text-slate-200 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+      >
+        {isClickLoading ? (
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+        ) : (
+          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
             <path
               fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -123,9 +160,9 @@ export const GoogleAuthButton = ({
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
             />
           </svg>
-          <span>Continue with Google</span>
-        </button>
-      )}
+        )}
+        <span>{buttonText}</span>
+      </button>
     </div>
   );
 };

@@ -92,9 +92,12 @@ export const assessmentService = {
     return await apiClient.post(`/assessments/${id}/start`);
   },
 
-  submitAssessment: async (id: string): Promise<any> => {
+  submitAssessment: async (
+    id: string,
+    data?: { tabSwitchCount?: number; copyPasteEvents?: number; idleTimeMinutes?: number }
+  ): Promise<any> => {
     if (!isUuid(id)) return null;
-    return await apiClient.post(`/assessments/${id}/submit`);
+    return await apiClient.post(`/assessments/${id}/submit`, data);
   },
 
   getProcessingStatus: async (id: string): Promise<any> => {

@@ -8,6 +8,7 @@ import {
   useSaveFile,
   useCreateFile,
   useDeleteFile,
+  useRenameFile,
   useRunApplication,
   useStopApplication,
   useSubmitAssessment,
@@ -15,6 +16,7 @@ import {
 } from "@/hooks/useAssessments";
 import { assessmentService } from "@/services/assessmentService";
 import { useIntegrityStore } from "@/store/integrityStore";
+import { useThemeStore } from "@/store/themeStore";
 import { IdeHeader } from "@/components/ide/IdeHeader";
 import { FileExplorer } from "@/components/ide/FileExplorer";
 import { TerminalConsole } from "@/components/ide/TerminalConsole";
@@ -47,6 +49,7 @@ export const AssessmentWorkspace = () => {
   const saveFileMutation = useSaveFile();
   const createFileMutation = useCreateFile();
   const deleteFileMutation = useDeleteFile();
+  const renameFileMutation = useRenameFile();
   const runMutation = useRunApplication();
   const stopMutation = useStopApplication();
   const submitMutation = useSubmitAssessment();
@@ -58,17 +61,8 @@ export const AssessmentWorkspace = () => {
   const [buildStatus, setBuildStatus] = useState<"IDLE" | "BUILDING" | "SUCCESS" | "FAILED">("IDLE");
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
 
-  // Dark / Light Theme State
-  const [theme, setTheme] = useState<"dark" | "light">(() => {
-    const saved = localStorage.getItem("evidence_ide_theme");
-    return saved === "light" ? "light" : "dark";
-  });
-
-  const handleToggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    localStorage.setItem("evidence_ide_theme", next);
-  };
+  // Global Unified Theme State (synced with IDE and Monaco editor)
+  const { theme, toggleTheme: handleToggleTheme } = useThemeStore();
 
   // Layout resizing & collapse states
   const [sidebarWidth, setSidebarWidth] = useState<number>(260);
@@ -219,6 +213,24 @@ export const AssessmentWorkspace = () => {
     if (activeFilePath === path || activeFilePath.startsWith(`${path}/`)) {
       const remainingFirst = findFirstFile(fileTree.filter((n) => n.path !== path));
       setActiveFilePath(remainingFirst || "");
+    }
+  };
+
+  const handleRenameFile = async (oldPath: string, newPath: string) => {
+    if (!id) return;
+    await renameFileMutation.mutateAsync({
+      assessmentId: id,
+      oldPath,
+      newPath,
+    });
+    setLogs((prev) => [
+      ...prev,
+      `[FILE_SYSTEM] Renamed: ${oldPath} -> ${newPath}`,
+    ]);
+    if (activeFilePath === oldPath) {
+      setActiveFilePath(newPath);
+    } else if (activeFilePath.startsWith(`${oldPath}/`)) {
+      setActiveFilePath(activeFilePath.replace(oldPath, newPath));
     }
   };
 
@@ -384,15 +396,22 @@ export const AssessmentWorkspace = () => {
   const handleConfirmSubmit = useCallback(async () => {
     if (!id || submitMutation.isPending) return;
     try {
-      await submitMutation.mutateAsync(id);
+      await submitMutation.mutateAsync({
+        assessmentId: id,
+        data: {
+          tabSwitchCount: tabSwitchCount || 0,
+          copyPasteEvents: 0,
+          idleTimeMinutes: 1,
+        },
+      });
       setIsSubmitModalOpen(false);
-      navigate(`/dashboard/candidates/${id}`);
+      navigate(`/candidate/assessments/${id}/report`);
     } catch (err: any) {
       console.error("Submit error:", err);
       setIsSubmitModalOpen(false);
-      navigate(`/dashboard/candidates/${id}`);
+      navigate(`/candidate/assessments/${id}/report`);
     }
-  }, [id, submitMutation, navigate]);
+  }, [id, submitMutation, navigate, tabSwitchCount]);
 
   // Anti-Cheat Tab Switching Monitor (disabled when PROCTORING_ENABLED is false)
   useEffect(() => {
@@ -425,7 +444,7 @@ export const AssessmentWorkspace = () => {
   if (isAssessmentLoading || isTreeLoading) {
     return (
       <div className="h-screen bg-white flex flex-col items-center justify-center space-y-3">
-        <Loader2 className="w-8 h-8 text-[#F05323] animate-spin" />
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
         <span className="text-xs font-semibold text-gray-500">
           Loading isolated coding workspace...
         </span>
@@ -471,6 +490,7 @@ export const AssessmentWorkspace = () => {
               theme={theme}
               onSelectFile={(path) => setActiveFilePath(path)}
               onCreateFile={handleCreateFile}
+              onRenameFile={handleRenameFile}
               onDeleteFile={handleDeleteFile}
               onRefresh={() => refetchTree()}
               onCollapse={() => setIsSidebarCollapsed(true)}
@@ -492,8 +512,8 @@ export const AssessmentWorkspace = () => {
               className={cn(
                 "p-1.5 rounded-md transition-colors",
                 isDark
-                  ? "text-slate-400 hover:text-[#F05323] hover:bg-slate-800"
-                  : "text-gray-500 hover:text-[#F05323] hover:bg-gray-200"
+                  ? "text-slate-400 hover:text-primary hover:bg-slate-800"
+                  : "text-gray-500 hover:text-primary hover:bg-gray-200"
               )}
               title="Open File Explorer (Expand Sidebar)"
             >
@@ -516,11 +536,11 @@ export const AssessmentWorkspace = () => {
           <div
             onMouseDown={handleSidebarMouseDown}
             className={cn(
-              "w-1 hover:w-1.5 cursor-col-resize active:bg-[#F05323] transition-colors flex-shrink-0 relative group select-none z-10",
+              "w-1 hover:w-1.5 cursor-col-resize active:bg-primary transition-colors flex-shrink-0 relative group select-none z-10",
               isDark
-                ? "bg-slate-800 hover:bg-[#F05323]"
-                : "bg-gray-200 hover:bg-[#F05323]",
-              isDraggingSidebar && "w-1.5 bg-[#F05323]"
+                ? "bg-slate-800 hover:bg-primary"
+                : "bg-gray-200 hover:bg-primary",
+              isDraggingSidebar && "w-1.5 bg-primary"
             )}
             title="Drag to resize sidebar"
           />
@@ -561,16 +581,16 @@ export const AssessmentWorkspace = () => {
 
               <div
                 className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 rounded-t-lg border-t-2 border-[#F05323] text-xs font-mono font-semibold truncate transition-colors",
+                  "flex items-center gap-2 px-3 py-1.5 rounded-t-lg border-t-2 border-primary text-xs font-mono font-semibold truncate transition-colors",
                   isDark
                     ? "bg-[#1E293B] text-slate-100 shadow-sm"
                     : "bg-white text-gray-900 shadow-2xs"
                 )}
               >
-                <FileCode className="w-3.5 h-3.5 text-[#F05323] flex-shrink-0" />
+                <FileCode className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                 <span className="truncate">{activeFileName}</span>
                 {isDirty && (
-                  <span className="w-2 h-2 rounded-full bg-[#F05323] flex-shrink-0" title="Unsaved changes" />
+                  <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" title="Unsaved changes" />
                 )}
               </div>
             </div>
@@ -602,7 +622,7 @@ export const AssessmentWorkspace = () => {
           >
             {isFileLoading ? (
               <div className="h-full flex items-center justify-center space-x-2 text-xs text-gray-400">
-                <Loader2 className="w-4 h-4 animate-spin text-[#F05323]" />
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
                 <span>Loading file content...</span>
               </div>
             ) : !activeFilePath ? (
@@ -654,11 +674,11 @@ export const AssessmentWorkspace = () => {
             <div
               onMouseDown={handleTerminalMouseDown}
               className={cn(
-                "h-1 hover:h-1.5 cursor-row-resize active:bg-[#F05323] transition-colors flex-shrink-0 select-none z-10",
+                "h-1 hover:h-1.5 cursor-row-resize active:bg-primary transition-colors flex-shrink-0 select-none z-10",
                 isDark
-                  ? "bg-slate-800 hover:bg-[#F05323]"
-                  : "bg-gray-300/80 hover:bg-[#F05323]",
-                isDraggingTerminal && "h-1.5 bg-[#F05323]"
+                  ? "bg-slate-800 hover:bg-primary"
+                  : "bg-gray-300/80 hover:bg-primary",
+                isDraggingTerminal && "h-1.5 bg-primary"
               )}
               title="Drag to resize terminal panel"
             />
@@ -711,7 +731,7 @@ export const AssessmentWorkspace = () => {
                 : "bg-white border-gray-100 text-gray-900"
             )}
           >
-            <div className="w-12 h-12 rounded-full bg-orange-500/10 text-[#F05323] flex items-center justify-center mx-auto">
+            <div className="w-12 h-12 rounded-full bg-primary-light0/10 text-primary flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-6 h-6" />
             </div>
 
@@ -769,7 +789,7 @@ export const AssessmentWorkspace = () => {
       {/* 5. Anti-Cheat Tab Switching Warning / Auto-Submit Modal */}
       {PROCTORING_ENABLED && showWarningModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-200 border border-orange-100">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-200 border border-primary-border/60">
             <div
               className={cn(
                 "w-12 h-12 rounded-full flex items-center justify-center mx-auto",

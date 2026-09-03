@@ -209,23 +209,23 @@ export const AstAnalysisDrawer = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-5 animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl border border-gray-100 dark:border-slate-800 space-y-5 animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col transition-colors">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+        <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-orange-50 text-[#F05323] flex items-center justify-center font-bold">
+            <div className="w-11 h-11 rounded-2xl bg-primary-light dark:bg-primary/25 text-primary dark:text-primary flex items-center justify-center font-bold">
               <Binary className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-extrabold text-gray-900">
+                <h3 className="text-lg font-extrabold text-gray-900 dark:text-white">
                   Codebase AST & AI Feature Specification
                 </h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
                   LIVE AST PARSER
                 </span>
               </div>
-              <p className="text-xs text-gray-500 font-mono">
+              <p className="text-xs text-gray-500 dark:text-slate-400 font-mono">
                 {assessmentTitle}
               </p>
             </div>
@@ -238,12 +238,12 @@ export const AstAnalysisDrawer = ({
               onClick={handleCopySpec}
               className="text-xs font-semibold gap-1.5"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? "Copied" : "Copy Complete JSON"}</span>
             </Button>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
+              className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 flex items-center justify-center text-gray-500 dark:text-slate-400 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -251,13 +251,13 @@ export const AstAnalysisDrawer = ({
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
+        <div className="flex items-center gap-2 border-b border-gray-100 dark:border-slate-800 pb-2">
           <button
             onClick={() => setActiveTab("FEATURE")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === "FEATURE"
-                ? "bg-[#F05323] text-white shadow-xs"
-                : "text-gray-600 hover:bg-gray-100"
+                ? "bg-primary text-white shadow-xs"
+                : "text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800"
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -266,10 +266,10 @@ export const AstAnalysisDrawer = ({
 
           <button
             onClick={() => setActiveTab("AST_STRUCTURE")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === "AST_STRUCTURE"
-                ? "bg-[#F05323] text-white shadow-xs"
-                : "text-gray-600 hover:bg-gray-100"
+                ? "bg-primary text-white shadow-xs"
+                : "text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800"
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
@@ -278,10 +278,10 @@ export const AstAnalysisDrawer = ({
 
           <button
             onClick={() => setActiveTab("ENDPOINTS")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === "ENDPOINTS"
-                ? "bg-[#F05323] text-white shadow-xs"
-                : "text-gray-600 hover:bg-gray-100"
+                ? "bg-primary text-white shadow-xs"
+                : "text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800"
             }`}
           >
             <Code2 className="w-3.5 h-3.5" />
@@ -293,25 +293,25 @@ export const AstAnalysisDrawer = ({
         <div className="flex-1 overflow-y-auto pr-1 space-y-4">
           {activeTab === "FEATURE" && (
             <div className="space-y-4">
-              <div className="p-4 bg-orange-50/50 rounded-2xl border border-orange-200/80 space-y-2">
+              <div className="p-4 bg-primary-light/50 dark:bg-primary/25/20 rounded-2xl border border-primary-border/80 dark:border-primary/30 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#F05323] block">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary dark:text-primary block">
                     AI Feature Specification
                   </span>
                   <div className="flex items-center gap-1.5 font-mono text-xs">
-                    <span className="px-2 py-0.5 rounded bg-[#F05323] text-white font-bold text-[10px]">
+                    <span className="px-2 py-0.5 rounded bg-primary text-white font-bold text-[10px]">
                       {specHttpMethod}
                     </span>
-                    <span className="text-gray-900 font-bold">{specEndpoint}</span>
+                    <span className="text-gray-900 dark:text-white font-bold">{specEndpoint}</span>
                   </div>
                 </div>
-                <h4 className="text-base font-extrabold text-gray-900">
+                <h4 className="text-base font-extrabold text-gray-900 dark:text-white">
                   {specTitle}
                 </h4>
                 <FormattedMarkdown
                   content={specDescription}
                   theme="light"
-                  className="text-xs text-gray-700 leading-relaxed"
+                  className="text-xs text-gray-700 dark:text-slate-300 leading-relaxed"
                 />
               </div>
 
@@ -343,13 +343,13 @@ export const AstAnalysisDrawer = ({
               {/* Requirements Checklist */}
               {specRequirements.length > 0 && (
                 <div className="space-y-2">
-                  <h5 className="text-xs font-extrabold text-gray-900 uppercase tracking-wider">
+                  <h5 className="text-xs font-extrabold text-gray-900 dark:text-white uppercase tracking-wider">
                     Functional Requirements
                   </h5>
                   <ul className="space-y-1.5">
                     {specRequirements.map((req: string, i: number) => (
-                      <li key={i} className="flex items-start gap-2.5 text-xs text-gray-700 bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <li key={i} className="flex items-start gap-2.5 text-xs text-gray-700 dark:text-slate-300 bg-gray-50/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-gray-100 dark:border-slate-700">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                         <div className="flex-1">
                           <FormattedMarkdown content={req} theme="light" />
                         </div>
@@ -362,13 +362,13 @@ export const AstAnalysisDrawer = ({
               {/* Constraints */}
               {specConstraints.length > 0 && (
                 <div className="space-y-2">
-                  <h5 className="text-xs font-extrabold text-gray-900 uppercase tracking-wider">
+                  <h5 className="text-xs font-extrabold text-gray-900 dark:text-white uppercase tracking-wider">
                     Architectural Constraints
                   </h5>
                   <ul className="space-y-1.5">
                     {specConstraints.map((c: string, i: number) => (
-                      <li key={i} className="flex items-start gap-2.5 text-xs text-gray-600 bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
-                        <ChevronRight className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                      <li key={i} className="flex items-start gap-2.5 text-xs text-gray-600 dark:text-slate-400 bg-gray-50/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-gray-100 dark:border-slate-700">
+                        <ChevronRight className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                         <div className="flex-1">
                           <FormattedMarkdown content={c} theme="light" />
                         </div>
@@ -405,21 +405,21 @@ export const AstAnalysisDrawer = ({
               )}
 
               {/* Entities Grid */}
-              <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
-                <h5 className="text-xs font-extrabold text-gray-900 flex items-center gap-1.5">
-                  <Database className="w-4 h-4 text-purple-600" />
+              <div className="p-4 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-gray-200 dark:border-slate-700 space-y-3">
+                <h5 className="text-xs font-extrabold text-gray-900 dark:text-white flex items-center gap-1.5">
+                  <Database className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   <span>Discovered JPA Domain Entities ({entities.length})</span>
                 </h5>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {entities.length > 0 ? (
                     entities.map((ent: any, i: number) => (
-                      <div key={i} className="p-3 bg-white rounded-xl border border-gray-200 space-y-2">
+                      <div key={i} className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 space-y-2">
                         <div className="flex items-center justify-between">
-                          <strong className="text-xs font-bold text-gray-900 font-mono">
+                          <strong className="text-xs font-bold text-gray-900 dark:text-white font-mono">
                             {typeof ent === "string" ? ent : ent.className}
                           </strong>
                           {ent.tableName && (
-                            <span className="text-[10px] font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                            <span className="text-[10px] font-mono text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                               table: {ent.tableName}
                             </span>
                           )}
@@ -430,7 +430,7 @@ export const AstAnalysisDrawer = ({
                               <span
                                 key={fi}
                                 className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
-                                  f.isId ? "bg-amber-50 border-amber-200 text-amber-900 font-bold" : "bg-gray-50 border-gray-200 text-gray-700"
+                                  f.isId ? "bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-300 font-bold" : "bg-gray-50 dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-300"
                                 }`}
                               >
                                 {f.name}: {f.type}
@@ -441,78 +441,78 @@ export const AstAnalysisDrawer = ({
                       </div>
                     ))
                   ) : (
-                    <div className="text-xs text-gray-500 font-mono">No entities detected</div>
+                    <div className="text-xs text-gray-500 dark:text-slate-400 font-mono">No entities detected</div>
                   )}
                 </div>
               </div>
 
               {/* Controllers, Services & Repositories Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
-                  <h5 className="text-xs font-extrabold text-gray-900 flex items-center gap-1.5">
-                    <Layers className="w-4 h-4 text-[#F05323]" />
+                <div className="p-4 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-gray-200 dark:border-slate-700 space-y-2">
+                  <h5 className="text-xs font-extrabold text-gray-900 dark:text-white flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-primary dark:text-primary" />
                     Controllers ({controllers.length})
                   </h5>
-                  <div className="space-y-1.5 font-mono text-[11px] text-gray-700">
+                  <div className="space-y-1.5 font-mono text-[11px] text-gray-700 dark:text-slate-300">
                     {controllers.length > 0 ? (
                       controllers.map((c: any, i: number) => (
-                        <div key={i} className="p-2 bg-white rounded-lg border border-gray-100">
-                          <strong className="text-gray-900">{typeof c === "string" ? c : c.className}</strong>
+                        <div key={i} className="p-2 bg-white dark:bg-slate-900 rounded-lg border border-gray-100 dark:border-slate-800">
+                          <strong className="text-gray-900 dark:text-white">{typeof c === "string" ? c : c.className}</strong>
                           {c.basePath && (
-                            <span className="text-gray-500 block text-[10px]">
+                            <span className="text-gray-500 dark:text-slate-400 block text-[10px]">
                               Base: /{c.basePath}
                             </span>
                           )}
                         </div>
                       ))
                     ) : (
-                      <div className="text-gray-400">None detected</div>
+                      <div className="text-gray-400 dark:text-slate-500">None detected</div>
                     )}
                   </div>
                 </div>
 
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
-                  <h5 className="text-xs font-extrabold text-gray-900 flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-emerald-600" />
+                <div className="p-4 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-gray-200 dark:border-slate-700 space-y-2">
+                  <h5 className="text-xs font-extrabold text-gray-900 dark:text-white flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     Services ({services.length})
                   </h5>
-                  <div className="space-y-1.5 font-mono text-[11px] text-gray-700">
+                  <div className="space-y-1.5 font-mono text-[11px] text-gray-700 dark:text-slate-300">
                     {services.length > 0 ? (
                       services.map((s: any, i: number) => (
-                        <div key={i} className="p-2 bg-white rounded-lg border border-gray-100">
-                          <strong className="text-gray-900">{typeof s === "string" ? s : s.className}</strong>
+                        <div key={i} className="p-2 bg-white dark:bg-slate-900 rounded-lg border border-gray-100 dark:border-slate-800">
+                          <strong className="text-gray-900 dark:text-white">{typeof s === "string" ? s : s.className}</strong>
                           {s.packageName && (
-                            <span className="text-gray-500 block text-[10px] truncate">
+                            <span className="text-gray-500 dark:text-slate-400 block text-[10px] truncate">
                               {s.packageName}
                             </span>
                           )}
                         </div>
                       ))
                     ) : (
-                      <div className="text-gray-400">None detected</div>
+                      <div className="text-gray-400 dark:text-slate-500">None detected</div>
                     )}
                   </div>
                 </div>
 
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
-                  <h5 className="text-xs font-extrabold text-gray-900 flex items-center gap-1.5">
-                    <FolderTree className="w-4 h-4 text-indigo-600" />
+                <div className="p-4 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-gray-200 dark:border-slate-700 space-y-2">
+                  <h5 className="text-xs font-extrabold text-gray-900 dark:text-white flex items-center gap-1.5">
+                    <FolderTree className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                     Repositories ({repositories.length})
                   </h5>
-                  <div className="space-y-1.5 font-mono text-[11px] text-gray-700">
+                  <div className="space-y-1.5 font-mono text-[11px] text-gray-700 dark:text-slate-300">
                     {repositories.length > 0 ? (
                       repositories.map((r: any, i: number) => (
-                        <div key={i} className="p-2 bg-white rounded-lg border border-gray-100">
-                          <strong className="text-gray-900">{typeof r === "string" ? r : r.interfaceName}</strong>
+                        <div key={i} className="p-2 bg-white dark:bg-slate-900 rounded-lg border border-gray-100 dark:border-slate-800">
+                          <strong className="text-gray-900 dark:text-white">{typeof r === "string" ? r : r.interfaceName}</strong>
                           {r.domainEntity && (
-                            <span className="text-gray-500 block text-[10px]">
+                            <span className="text-gray-500 dark:text-slate-400 block text-[10px]">
                               Entity: {r.domainEntity}
                             </span>
                           )}
                         </div>
                       ))
                     ) : (
-                      <div className="text-gray-400">None detected</div>
+                      <div className="text-gray-400 dark:text-slate-500">None detected</div>
                     )}
                   </div>
                 </div>
@@ -520,14 +520,14 @@ export const AstAnalysisDrawer = ({
 
               {/* Dependencies */}
               {dependencies.length > 0 && (
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
-                  <h5 className="text-xs font-extrabold text-gray-900 flex items-center gap-1.5">
-                    <Code2 className="w-4 h-4 text-blue-600" />
+                <div className="p-4 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-gray-200 dark:border-slate-700 space-y-2">
+                  <h5 className="text-xs font-extrabold text-gray-900 dark:text-white flex items-center gap-1.5">
+                    <Code2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     Starter Dependencies ({dependencies.length})
                   </h5>
                   <div className="flex flex-wrap gap-1.5 font-mono text-[10px]">
                     {dependencies.map((dep: string, i: number) => (
-                      <span key={i} className="px-2 py-0.5 rounded bg-white border border-gray-200 text-gray-700">
+                      <span key={i} className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-300">
                         {dep}
                       </span>
                     ))}
@@ -539,7 +539,7 @@ export const AstAnalysisDrawer = ({
 
           {activeTab === "ENDPOINTS" && (
             <div className="space-y-2.5">
-              <h5 className="text-xs font-extrabold text-gray-900 uppercase tracking-wider pb-1">
+              <h5 className="text-xs font-extrabold text-gray-900 dark:text-white uppercase tracking-wider pb-1">
                 Discovered REST Endpoints in Codebase ({endpoints.length})
               </h5>
               <div className="space-y-2">
@@ -547,7 +547,7 @@ export const AstAnalysisDrawer = ({
                   endpoints.map((ep: any, i: number) => (
                     <div
                       key={i}
-                      className="p-3 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between font-mono text-xs hover:border-[#F05323]/50 transition-colors"
+                      className="p-3 bg-gray-50 dark:bg-slate-800/60 rounded-xl border border-gray-200 dark:border-slate-700 flex items-center justify-between font-mono text-xs hover:border-primary/50 transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -559,19 +559,19 @@ export const AstAnalysisDrawer = ({
                         }`}>
                           {ep.method}
                         </span>
-                        <span className="font-bold text-gray-900">{ep.path}</span>
+                        <span className="font-bold text-gray-900 dark:text-white">{ep.path}</span>
                       </div>
 
                       <div className="text-right">
-                        <span className="text-gray-600 text-[11px] block">{ep.controllerMethod}</span>
+                        <span className="text-gray-600 dark:text-slate-300 text-[11px] block">{ep.controllerMethod}</span>
                         {ep.returnType && (
-                          <span className="text-[10px] text-gray-400 block">{ep.returnType}</span>
+                          <span className="text-[10px] text-gray-400 dark:text-slate-500 block">{ep.returnType}</span>
                         )}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="p-6 text-center text-xs text-gray-500 font-mono">
+                  <div className="p-6 text-center text-xs text-gray-500 dark:text-slate-400 font-mono">
                     No explicit endpoints detected in scanned controllers.
                   </div>
                 )}
@@ -581,11 +581,11 @@ export const AstAnalysisDrawer = ({
         </div>
 
         {/* Footer */}
-        <div className="pt-2 border-t border-gray-100 flex justify-end">
+        <div className="pt-2 border-t border-gray-100 dark:border-slate-800 flex justify-end">
           <Button
             size="sm"
             onClick={onClose}
-            className="bg-gray-900 hover:bg-black text-white text-xs font-bold"
+            className="bg-gray-900 hover:bg-black dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold"
           >
             Close Inspector
           </Button>

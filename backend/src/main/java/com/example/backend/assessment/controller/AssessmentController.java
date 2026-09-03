@@ -5,7 +5,9 @@ import com.example.backend.assessment.dto.AssessmentStatusResponse;
 import com.example.backend.assessment.dto.CreateAssessmentRequest;
 import com.example.backend.assessment.dto.FeatureSpecificationResponse;
 import com.example.backend.assessment.dto.ProcessingStatusResponse;
-import com.example.backend.assessment.service.AssessmentService;
+import com.example.backend.assessment.application.AssessmentCommandService;
+import com.example.backend.assessment.application.AssessmentQueryService;
+import com.example.backend.assessment.application.AssessmentLifecycleService;
 import com.example.backend.common.dto.ApiResponse;
 import com.example.backend.common.exception.BadRequestException;
 import com.example.backend.common.util.UUIDUtils;
@@ -25,7 +27,9 @@ import java.util.UUID;
 @CrossOrigin(originPatterns = "*")
 public class AssessmentController {
 
-    private final AssessmentService assessmentService;
+    private final AssessmentCommandService assessmentCommandService;
+    private final AssessmentQueryService assessmentQueryService;
+    private final AssessmentLifecycleService assessmentLifecycleService;
 
     @PostMapping("/workspaces/{workspaceId}/assessments")
     public ResponseEntity<ApiResponse<AssessmentResponse>> createAssessment(
@@ -39,7 +43,7 @@ public class AssessmentController {
         log.info("Creating assessment in workspace ID: {} for candidate ID: {}", wsId, request.getCandidateId());
         if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
         UUID recruiterId = principal.getId();
-        AssessmentResponse response = assessmentService.createAssessment(recruiterId, wsId, request);
+        AssessmentResponse response = assessmentCommandService.createAssessment(recruiterId, wsId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Assessment creation started", response));
     }
@@ -54,7 +58,7 @@ public class AssessmentController {
         }
         if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
         UUID recruiterId = principal.getId();
-        java.util.List<AssessmentResponse> response = assessmentService.getAssessmentsByWorkspace(recruiterId, wsId);
+        java.util.List<AssessmentResponse> response = assessmentQueryService.getAssessmentsByWorkspace(recruiterId, wsId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -69,7 +73,7 @@ public class AssessmentController {
         if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
         UUID recruiterId = principal.getRole() == com.example.backend.common.enums.Role.RECRUITER ? principal.getId() : null;
         UUID candidateId = principal.getRole() == com.example.backend.common.enums.Role.CANDIDATE ? principal.getId() : null;
-        Object response = assessmentService.getAssessmentDetails(recruiterId, candidateId, aId);
+        Object response = assessmentQueryService.getAssessmentDetails(recruiterId, candidateId, aId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -83,7 +87,7 @@ public class AssessmentController {
         }
         if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
         UUID recruiterId = principal.getId();
-        ProcessingStatusResponse response = assessmentService.getProcessingStatus(recruiterId, aId);
+        ProcessingStatusResponse response = assessmentQueryService.getProcessingStatus(recruiterId, aId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -98,7 +102,7 @@ public class AssessmentController {
         if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
         UUID recruiterId = principal.getRole() == com.example.backend.common.enums.Role.RECRUITER ? principal.getId() : null;
         UUID candidateId = principal.getRole() == com.example.backend.common.enums.Role.CANDIDATE ? principal.getId() : null;
-        FeatureSpecificationResponse response = assessmentService.getFeatureSpecification(recruiterId, candidateId, aId);
+        FeatureSpecificationResponse response = assessmentQueryService.getFeatureSpecification(recruiterId, candidateId, aId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -113,7 +117,7 @@ public class AssessmentController {
         if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
         UUID recruiterId = principal.getRole() == com.example.backend.common.enums.Role.RECRUITER ? principal.getId() : null;
         UUID candidateId = principal.getRole() == com.example.backend.common.enums.Role.CANDIDATE ? principal.getId() : null;
-        Object response = assessmentService.getRepositoryAnalysis(recruiterId, candidateId, aId);
+        Object response = assessmentQueryService.getRepositoryAnalysis(recruiterId, candidateId, aId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -128,7 +132,7 @@ public class AssessmentController {
         if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
         UUID recruiterId = principal.getRole() == com.example.backend.common.enums.Role.RECRUITER ? principal.getId() : null;
         UUID candidateId = principal.getRole() == com.example.backend.common.enums.Role.CANDIDATE ? principal.getId() : null;
-        AssessmentStatusResponse response = assessmentService.getAssessmentStatus(recruiterId, candidateId, aId);
+        AssessmentStatusResponse response = assessmentLifecycleService.getAssessmentStatus(recruiterId, candidateId, aId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

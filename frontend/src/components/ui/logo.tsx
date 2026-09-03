@@ -36,14 +36,14 @@ export const Logo = ({
           xmlns="http://www.w3.org/2000/svg"
           className="w-full h-full drop-shadow-sm"
         >
-          {/* Orange Diamond / Chevrons */}
+          {/* Evidence Diamond / Chevrons */}
           <path
             d="M12 20L19 13L21 15L16 20L21 25L19 27L12 20Z"
-            fill="#F05323"
+            fill="var(--theme-primary)"
           />
           <path
             d="M28 20L21 13L19 15L24 20L19 25L21 27L28 20Z"
-            fill="#F05323"
+            fill="var(--theme-primary)"
           />
           <rect
             x="3"
@@ -52,11 +52,11 @@ export const Logo = ({
             height="24"
             rx="4"
             transform="rotate(-45 3 20)"
-            stroke="#F05323"
+            stroke="var(--theme-primary)"
             strokeWidth="3.5"
           />
-          <circle cx="16" cy="20" r="1.5" fill="#F05323" />
-          <circle cx="24" cy="20" r="1.5" fill="#F05323" />
+          <circle cx="16" cy="20" r="1.5" fill="var(--theme-primary)" />
+          <circle cx="24" cy="20" r="1.5" fill="var(--theme-primary)" />
         </svg>
       </div>
 
@@ -64,14 +64,14 @@ export const Logo = ({
       <div className="flex flex-col">
         <span
           className={cn(
-            "font-extrabold tracking-tight text-gray-900 leading-none",
+            "font-extrabold tracking-tight text-gray-900 leading-none dark:text-white",
             textSizes[size]
           )}
         >
           EVIDENCE
         </span>
         {showSubtitle && (
-          <span className="text-[10px] font-medium tracking-wide text-gray-500 mt-0.5 leading-none">
+          <span className="text-[10px] font-medium tracking-wide text-gray-500 mt-0.5 leading-none dark:text-slate-400">
             Verify Real-World Mastery
           </span>
         )}

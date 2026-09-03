@@ -43,6 +43,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final ObjectMapper objectMapper;
+    private final GoogleTokenVerifier googleTokenVerifier;
 
     @Value("${google.client-id:}")
     private String googleClientId;
@@ -84,6 +85,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .role(user.getRole())
                 .authProvider(user.getAuthProvider())
+                .avatarUrl(user.getAvatarUrl())
                 .token(token)
                 .build();
     }
@@ -124,6 +126,7 @@ public class AuthService {
                 .email(saved.getEmail())
                 .role(saved.getRole())
                 .authProvider(saved.getAuthProvider())
+                .avatarUrl(saved.getAvatarUrl())
                 .token(token)
                 .build();
     }
@@ -141,13 +144,14 @@ public class AuthService {
             throw new UnauthorizedException("Google credential is required", "MISSING_GOOGLE_CREDENTIAL");
         }
 
-        GoogleProfile profile = verifyGoogleIdToken(credential.trim());
+        GoogleTokenVerifier.GoogleProfile profile = verifyGoogleIdToken(credential.trim());
         if (profile == null || profile.email() == null) {
             throw new UnauthorizedException("Invalid or unverified Google token", "INVALID_GOOGLE_TOKEN");
         }
 
         String email = profile.email().trim().toLowerCase();
         String name = profile.name() != null && !profile.name().trim().isEmpty() ? profile.name().trim() : email.split("@")[0];
+        String picture = profile.picture();
 
         Optional<User> existingUserOpt = userRepository.findByEmail(email);
         User user;
@@ -155,8 +159,16 @@ public class AuthService {
         if (existingUserOpt.isPresent()) {
             user = existingUserOpt.get();
             log.info("Google OAuth login for existing user: {} (Role: {})", email, user.getRole());
+            boolean modified = false;
             if (user.getAuthProvider() == null || user.getAuthProvider() == AuthProvider.LOCAL) {
                 user.setAuthProvider(AuthProvider.GOOGLE);
+                modified = true;
+            }
+            if (picture != null && !picture.isBlank() && (user.getAvatarUrl() == null || !user.getAvatarUrl().equals(picture))) {
+                user.setAvatarUrl(picture);
+                modified = true;
+            }
+            if (modified) {
                 user = userRepository.save(user);
             }
         } else {
@@ -172,6 +184,7 @@ public class AuthService {
                     .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
                     .role(assignedRole)
                     .authProvider(AuthProvider.GOOGLE)
+                    .avatarUrl(picture)
                     .build();
             user = userRepository.save(newUser);
         }
@@ -183,6 +196,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .role(user.getRole())
                 .authProvider(user.getAuthProvider())
+                .avatarUrl(user.getAvatarUrl())
                 .token(token)
                 .build();
     }
@@ -207,59 +221,12 @@ public class AuthService {
                 .email(user.getEmail())
                 .role(user.getRole())
                 .authProvider(user.getAuthProvider())
+                .avatarUrl(user.getAvatarUrl())
                 .token(jwtTokenProvider.generateToken(user))
                 .build();
     }
 
-    private record GoogleProfile(String email, String name, String sub, String picture) {}
-
-    private GoogleProfile verifyGoogleIdToken(String idTokenString) {
-        // 1. Try Google TokenInfo endpoint verification
-        try {
-            HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(5))
-                    .build();
-
-            HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create("https://oauth2.googleapis.com/tokeninfo?id_token=" + idTokenString))
-                    .timeout(Duration.ofSeconds(5))
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = client.send(req, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200) {
-                JsonNode root = objectMapper.readTree(response.body());
-                String email = root.path("email").asText(null);
-                String name = root.path("name").asText(null);
-                String sub = root.path("sub").asText(null);
-                String picture = root.path("picture").asText(null);
-                if (email != null) {
-                    return new GoogleProfile(email, name, sub, picture);
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Google tokeninfo verification failed: {}", e.getMessage());
-        }
-
-        // 2. Fallback: Parse unverified JWT payload safely if offline/demo
-        try {
-            String[] parts = idTokenString.split("\\.");
-            if (parts.length >= 2) {
-                String payloadJson = new String(Base64.getUrlDecoder().decode(parts[1]));
-                JsonNode node = objectMapper.readTree(payloadJson);
-                String email = node.path("email").asText(null);
-                String name = node.path("name").asText(null);
-                String sub = node.path("sub").asText(null);
-                String picture = node.path("picture").asText(null);
-                if (email != null && email.contains("@")) {
-                    log.info("Decoded Google payload claims for: {}", email);
-                    return new GoogleProfile(email, name, sub, picture);
-                }
-            }
-        } catch (Exception ex) {
-            log.warn("Failed to parse Google ID token payload: {}", ex.getMessage());
-        }
-
-        return null;
+    private GoogleTokenVerifier.GoogleProfile verifyGoogleIdToken(String idTokenString) {
+        return googleTokenVerifier.verifyGoogleIdToken(idTokenString);
     }
 }

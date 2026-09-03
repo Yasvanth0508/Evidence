@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { AssessmentStatus } from "@/types";
 
 export type AssessmentDisplayStatus = "Not Taken" | "Assigned" | "Scheduled" | "Taken";
 
@@ -31,7 +32,7 @@ export interface HRAssessment {
   scheduledTime: string; // e.g. "10:30 AM"
   scheduledStartAt?: string;
   scheduledEndAt?: string;
-  status: "NOT_ASSIGNED" | "ASSIGNED" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED";
+  status: AssessmentStatus | "NOT_ASSIGNED" | "ASSIGNED";
   score?: number | null;
   totalTests?: number;
   passedTests?: number;

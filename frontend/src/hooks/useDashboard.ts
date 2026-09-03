@@ -37,7 +37,7 @@ export const useRecruiterDashboard = () => {
         },
         assessmentStatusDistribution: [
           { name: "Completed", count: stats.completedAssessments || 0, percentage: stats.totalAssessments ? Math.round(((stats.completedAssessments || 0) / stats.totalAssessments) * 100) : 0, color: "#10B981" },
-          { name: "Active", count: stats.activeAssessments || 0, percentage: stats.totalAssessments ? Math.round(((stats.activeAssessments || 0) / stats.totalAssessments) * 100) : 0, color: "#F05323" },
+          { name: "Active", count: stats.activeAssessments || 0, percentage: stats.totalAssessments ? Math.round(((stats.activeAssessments || 0) / stats.totalAssessments) * 100) : 0, color: "var(--theme-primary)" },
           { name: "Scheduled", count: Math.max(0, (stats.totalAssessments || 0) - (stats.completedAssessments || 0) - (stats.activeAssessments || 0)), percentage: 0, color: "#3B82F6" },
         ],
         mostFailedBugCategories: [

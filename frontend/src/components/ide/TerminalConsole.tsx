@@ -34,7 +34,7 @@ export const TerminalConsole = ({
             className={cn(
               "flex items-center gap-1.5 py-2.5 transition-colors border-b-2",
               activeTab === "TERMINAL"
-                ? "text-white border-[#F05323]"
+                ? "text-white border-primary"
                 : "text-gray-400 border-transparent hover:text-gray-200"
             )}
           >
@@ -50,7 +50,7 @@ export const TerminalConsole = ({
             className={cn(
               "flex items-center gap-1.5 py-2.5 transition-colors border-b-2",
               activeTab === "BUILD_OUTPUT"
-                ? "text-white border-[#F05323]"
+                ? "text-white border-primary"
                 : "text-gray-400 border-transparent hover:text-gray-200"
             )}
           >

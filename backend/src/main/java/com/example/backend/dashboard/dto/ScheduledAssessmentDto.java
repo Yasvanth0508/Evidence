@@ -17,10 +17,18 @@ import java.util.UUID;
 public class ScheduledAssessmentDto {
 
     private UUID assessmentId;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("id")
+    public UUID getId() {
+        return assessmentId;
+    }
+
+    private String title;
     private UUID workspaceId;
     private String workspaceName;
     private Instant scheduledStartAt;
     private Instant scheduledEndAt;
     private Difficulty difficulty;
+    private Integer durationMinutes;
     private AssessmentStatus status;
 }

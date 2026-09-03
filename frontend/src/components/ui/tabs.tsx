@@ -48,7 +48,7 @@ export function TabsList({
   return (
     <div
       className={cn(
-        "inline-flex h-10 items-center justify-center rounded-xl bg-gray-100 p-1 text-gray-500",
+        "inline-flex h-10 items-center justify-center rounded-xl bg-gray-100 p-1 text-gray-500 dark:bg-slate-800 dark:text-slate-400",
         className
       )}
       {...props}
@@ -78,8 +78,8 @@ export function TabsTrigger({
       className={cn(
         "inline-flex items-center justify-center whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
         isSelected
-          ? "bg-white text-gray-900 shadow-sm font-semibold text-[#F05323]"
-          : "text-gray-600 hover:text-gray-900",
+          ? "bg-white shadow-sm font-semibold text-primary dark:bg-slate-900 dark:text-white"
+          : "text-gray-600 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100",
         className
       )}
       onClick={() => context.onValueChange(value)}

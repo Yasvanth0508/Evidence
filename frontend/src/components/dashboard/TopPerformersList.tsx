@@ -31,7 +31,7 @@ export const TopPerformersList = ({ performers }: TopPerformersListProps) => {
         );
       case 3:
         return (
-          <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 font-bold text-xs shadow-xs">
+          <div className="w-6 h-6 rounded-full bg-primary-light flex items-center justify-center text-orange-700 font-bold text-xs shadow-xs">
             <Medal className="w-3.5 h-3.5" />
           </div>
         );
@@ -51,7 +51,7 @@ export const TopPerformersList = ({ performers }: TopPerformersListProps) => {
         <h3 className="font-bold text-gray-900 text-base">Top Performers</h3>
         <Link
           to="/dashboard/candidates"
-          className="text-xs font-bold text-[#F05323] hover:underline"
+          className="text-xs font-bold text-primary hover:underline"
         >
           View All
         </Link>

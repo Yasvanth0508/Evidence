@@ -4,6 +4,7 @@ import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { authService } from "@/services/authService";
 import { useAuthStore, UserRole } from "@/store/authStore";
 import {
@@ -69,6 +70,7 @@ export const LoginPage = () => {
             email: response.email,
             role: response.role,
             authProvider: response.authProvider || "LOCAL",
+            avatarUrl: response.avatarUrl,
           },
           response.token
         );
@@ -107,6 +109,7 @@ export const LoginPage = () => {
             email: response.email,
             role: response.role,
             authProvider: response.authProvider || "GOOGLE",
+            avatarUrl: response.avatarUrl,
           },
           response.token
         );
@@ -115,12 +118,18 @@ export const LoginPage = () => {
       }
     } catch (err: any) {
       console.warn("Google authentication failed:", err);
-      const msg = err?.response?.data?.message || err?.message || "";
-      if (msg.includes("ROLE_REQUIRED") || msg.includes("Please select whether you are a Candidate or Recruiter")) {
+      const isRoleRequired =
+        err?.errorCode === "ROLE_REQUIRED" ||
+        err?.response?.data?.errorCode === "ROLE_REQUIRED" ||
+        err?.message?.includes("ROLE_REQUIRED") ||
+        err?.message?.includes("Please select whether you are a Candidate or Recruiter");
+
+      if (isRoleRequired) {
         setPendingGoogleCredential(credential);
       } else {
         setErrorMessage(
           err?.response?.data?.message ||
+          err?.message ||
           "Google sign-in failed. Please try again or use email login."
         );
       }
@@ -129,36 +138,37 @@ export const LoginPage = () => {
     }
   };
 
-
-
   return (
-    <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-between font-sans">
+    <div className="min-h-screen bg-[#F9FAFB] dark:bg-[#0B0F19] text-gray-900 dark:text-slate-100 flex flex-col justify-between font-sans transition-colors duration-200">
       {/* 1. Header */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-xs">
+      <header className="sticky top-0 z-50 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-gray-100 dark:border-slate-800 shadow-xs transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <Logo size="md" />
 
-          <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-600">
-            <Link to="/#overview" className="hover:text-gray-900 transition-colors">
+          <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-600 dark:text-slate-400">
+            <Link to="/#overview" className="hover:text-gray-900 dark:hover:text-white transition-colors">
               Platform Overview
             </Link>
-            <Link to="/#how-it-works" className="hover:text-gray-900 transition-colors">
+            <Link to="/#how-it-works" className="hover:text-gray-900 dark:hover:text-white transition-colors">
               How It Works
             </Link>
-            <Link to="/#architecture" className="hover:text-gray-900 transition-colors">
+            <Link to="/#architecture" className="hover:text-gray-900 dark:hover:text-white transition-colors">
               Key Capabilities
             </Link>
-            <Link to="/#portals" className="hover:text-gray-900 transition-colors">
+            <Link to="/#portals" className="hover:text-gray-900 dark:hover:text-white transition-colors">
               Role Portals
             </Link>
           </nav>
 
           <div className="flex items-center space-x-3">
             <Link to="/signup">
-              <Button size="sm" className="font-semibold shadow-xs bg-[#F05323] hover:bg-[#d94417] text-white">
+              <Button size="sm" className="font-semibold shadow-xs bg-primary hover:bg-primary-hover text-white">
                 Create Account
               </Button>
             </Link>
+
+            {/* Dark Mode Switcher */}
+            <ThemeToggle size="sm" />
           </div>
         </div>
       </header>
@@ -166,24 +176,24 @@ export const LoginPage = () => {
       {/* 2. Main Unified Login Card */}
       <main className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-6">
-          <div className="bg-white border border-gray-200/90 rounded-3xl p-8 sm:p-10 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 rounded-3xl p-8 sm:p-10 shadow-sm transition-colors">
             {/* Title & Subtitle */}
             <div className="text-center space-y-1.5 mb-8">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-[#F05323] border border-orange-200/60 mb-2">
-                <Sparkles className="w-3.5 h-3.5 text-[#F05323]" />
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-primary-light dark:bg-primary/20 text-primary dark:text-primary border border-primary-border dark:border-primary/30 mb-2">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
                 Evidence Unified Access
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
                 Welcome Back
               </h1>
-              <p className="text-xs sm:text-sm text-gray-500">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400">
                 Sign in to your account to continue to your dashboard.
               </p>
             </div>
 
             {/* Error Message Alert */}
             {errorMessage && (
-              <div className="mb-6 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
+              <div className="mb-6 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 text-xs text-rose-700 dark:text-rose-400 font-medium">
                 {errorMessage}
               </div>
             )}
@@ -201,10 +211,10 @@ export const LoginPage = () => {
             {/* Divider */}
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
+                <div className="w-full border-t border-gray-200 dark:border-slate-800" />
               </div>
-              <div className="relative flex justify-center text-xs text-gray-500">
-                <span className="bg-white px-3 text-gray-400 font-medium">or continue with email</span>
+              <div className="relative flex justify-center text-xs text-gray-500 dark:text-slate-400">
+                <span className="bg-white dark:bg-slate-900 px-3 text-gray-400 dark:text-slate-500 font-medium transition-colors">or continue with email</span>
               </div>
             </div>
 
@@ -212,7 +222,7 @@ export const LoginPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Email Address */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-700 block">
+                <label className="text-xs font-semibold text-gray-700 dark:text-slate-300 block">
                   Email Address
                 </label>
                 <Input
@@ -227,7 +237,7 @@ export const LoginPage = () => {
 
               {/* Password */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-700 block">
+                <label className="text-xs font-semibold text-gray-700 dark:text-slate-300 block">
                   Password
                 </label>
                 <Input
@@ -241,7 +251,7 @@ export const LoginPage = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 focus:outline-none cursor-pointer"
                     >
                       {showPassword ? (
                         <EyeOff className="w-4 h-4" />
@@ -260,24 +270,22 @@ export const LoginPage = () => {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-[#F05323] focus:ring-[#F05323] accent-[#F05323]"
+                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
                   />
-                  <span className="text-gray-700 font-medium">Remember me</span>
+                  <span className="text-gray-700 dark:text-slate-300 font-medium">Remember me</span>
                 </label>
 
-                <span className="font-medium text-gray-400 hover:text-gray-600 cursor-pointer">
+                <span className="font-medium text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 cursor-pointer">
                   Forgot Password?
                 </span>
               </div>
-
-
 
               {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={isLoading}
                 size="lg"
-                className="w-full font-bold gap-2 shadow-xs mt-3 bg-[#F05323] hover:bg-[#d94417] text-white cursor-pointer"
+                className="w-full font-bold gap-2 shadow-xs mt-3 bg-primary hover:bg-primary-hover text-white cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -292,11 +300,11 @@ export const LoginPage = () => {
             </form>
 
             {/* Switch to Signup */}
-            <div className="mt-8 text-center text-xs text-gray-500">
+            <div className="mt-8 text-center text-xs text-gray-500 dark:text-slate-400">
               Don't have an account?{" "}
               <Link
                 to="/signup"
-                className="font-bold text-[#F05323] hover:underline"
+                className="font-bold text-primary hover:underline"
               >
                 Create an account
               </Link>
@@ -304,8 +312,8 @@ export const LoginPage = () => {
           </div>
 
           {/* Security Badge */}
-          <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
-            <ShieldCheck className="w-4 h-4 text-gray-400" />
+          <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400 dark:text-slate-500">
+            <ShieldCheck className="w-4 h-4 text-gray-400 dark:text-slate-500" />
             <span>Secured with cryptographic JWT role-based access</span>
           </div>
         </div>
@@ -314,25 +322,25 @@ export const LoginPage = () => {
       {/* Role Selection Modal for New Google Users */}
       {pendingGoogleCredential && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-100 space-y-4 animate-in zoom-in-95 duration-200">
-            <h3 className="text-lg font-extrabold text-gray-900 text-center">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-100 dark:border-slate-800 space-y-4 animate-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-extrabold text-gray-900 dark:text-white text-center">
               Complete Your Registration
             </h3>
-            <p className="text-xs text-gray-500 text-center">
+            <p className="text-xs text-gray-500 dark:text-slate-400 text-center">
               It looks like you are new here! Please select your role to continue with Google.
             </p>
             <div className="grid grid-cols-2 gap-3 mt-4">
               <button
                 onClick={() => handleGoogleSuccess(pendingGoogleCredential, "CANDIDATE")}
-                className="p-3 rounded-2xl border border-gray-200 hover:border-emerald-500 bg-gray-50/50 hover:bg-emerald-50/40 transition-all text-center"
+                className="p-3 rounded-2xl border border-gray-200 dark:border-slate-700 hover:border-emerald-500 bg-gray-50/50 dark:bg-slate-800 hover:bg-emerald-50/40 transition-all text-center"
               >
-                <h4 className="font-bold text-xs text-gray-900">Candidate</h4>
+                <h4 className="font-bold text-xs text-gray-900 dark:text-white">Candidate</h4>
               </button>
               <button
                 onClick={() => handleGoogleSuccess(pendingGoogleCredential, "RECRUITER")}
-                className="p-3 rounded-2xl border border-gray-200 hover:border-[#F05323] bg-gray-50/50 hover:bg-orange-50/40 transition-all text-center"
+                className="p-3 rounded-2xl border border-gray-200 dark:border-slate-700 hover:border-primary bg-gray-50/50 dark:bg-slate-800 hover:bg-primary-light dark:hover:bg-primary/20 transition-all text-center"
               >
-                <h4 className="font-bold text-xs text-gray-900">Recruiter</h4>
+                <h4 className="font-bold text-xs text-gray-900 dark:text-white">Recruiter</h4>
               </button>
             </div>
             <Button

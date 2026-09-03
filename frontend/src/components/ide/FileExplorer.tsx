@@ -11,6 +11,7 @@ import {
   ChevronDown,
   FilePlus,
   FolderPlus,
+  Pencil,
   Trash2,
   RefreshCw,
   PanelLeftClose,
@@ -28,6 +29,7 @@ interface FileExplorerProps {
   theme?: "dark" | "light";
   onSelectFile: (path: string) => void;
   onCreateFile?: (path: string, type: "FILE" | "DIRECTORY") => Promise<void>;
+  onRenameFile?: (oldPath: string, newPath: string) => Promise<void>;
   onDeleteFile?: (path: string) => Promise<void>;
   onRefresh?: () => void;
   onCollapse?: () => void;
@@ -39,6 +41,7 @@ interface FileTreeItemProps {
   theme?: "dark" | "light";
   onSelectFile: (path: string) => void;
   onInitiateCreate: (parentPath: string, type: "FILE" | "DIRECTORY") => void;
+  onInitiateRename: (node: FileNode) => void;
   onInitiateDelete: (node: FileNode) => void;
   level?: number;
 }
@@ -49,10 +52,10 @@ const getFileIcon = (fileName: string) => {
     return <FileCode className="w-3.5 h-3.5 text-cyan-500 flex-shrink-0" />;
   }
   if (lower.endsWith(".java")) {
-    return <FileCode className="w-3.5 h-3.5 text-[#F05323] flex-shrink-0" />;
+    return <FileCode className="w-3.5 h-3.5 text-primary flex-shrink-0" />;
   }
   if (lower.endsWith(".html") || lower.endsWith(".htm")) {
-    return <FileCode className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />;
+    return <FileCode className="w-3.5 h-3.5 text-primary flex-shrink-0" />;
   }
   if (lower.endsWith(".css") || lower.endsWith(".scss") || lower.endsWith(".less")) {
     return <FileCode className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />;
@@ -81,10 +84,12 @@ const FileTreeItem = ({
   theme = "dark",
   onSelectFile,
   onInitiateCreate,
+  onInitiateRename,
   onInitiateDelete,
   level = 0,
 }: FileTreeItemProps) => {
   const [isOpen, setIsOpen] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
   const isDirectory = node.type === "DIRECTORY";
   const isActive = activeFilePath === node.path || activeFilePath === `/${node.path}` || `/${activeFilePath}` === node.path;
   const isDark = theme === "dark";
@@ -98,20 +103,22 @@ const FileTreeItem = ({
   };
 
   return (
-    <div className="group/item relative">
+    <div className="relative">
       <div
         style={{ paddingLeft: `${level * 14 + 6}px` }}
         className={cn(
           "w-full flex items-center justify-between py-1 pr-1.5 text-xs font-mono rounded-md text-left transition-colors cursor-pointer select-none",
           isActive
             ? isDark
-              ? "bg-orange-950/60 text-orange-400 font-bold border-l-2 border-[#F05323]"
-              : "bg-orange-50/90 text-[#F05323] font-bold"
+              ? "bg-primary/25 text-primary font-bold border-l-2 border-primary"
+              : "bg-primary-light/90 text-primary font-bold"
             : isDark
             ? "text-slate-300 hover:bg-slate-800/80 hover:text-white"
             : "text-gray-600 hover:bg-gray-100/90 hover:text-gray-900"
         )}
         onClick={handleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         <div className="flex items-center gap-1.5 truncate min-w-0 flex-1">
           {isDirectory ? (
@@ -151,63 +158,81 @@ const FileTreeItem = ({
           )}
         </div>
 
-        {/* Hover Action Buttons */}
-        <div
-          className={cn(
-            "hidden group-hover/item:flex items-center gap-0.5 ml-1 flex-shrink-0 shadow-2xs rounded px-1 border",
-            isDark
-              ? "bg-slate-800 border-slate-700 text-slate-300"
-              : "bg-white/90 border-gray-200/80 text-gray-400"
-          )}
-        >
-          {isDirectory && (
-            <>
-              <button
-                type="button"
-                title="New File in Folder"
-                className={cn(
-                  "p-1 rounded",
-                  isDark ? "hover:text-[#F05323] hover:bg-slate-700" : "hover:text-[#F05323] hover:bg-gray-100"
-                )}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onInitiateCreate(node.path, "FILE");
-                }}
-              >
-                <FilePlus className="w-3 h-3" />
-              </button>
-              <button
-                type="button"
-                title="New Folder in Folder"
-                className={cn(
-                  "p-1 rounded",
-                  isDark ? "hover:text-amber-400 hover:bg-slate-700" : "hover:text-amber-600 hover:bg-gray-100"
-                )}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onInitiateCreate(node.path, "DIRECTORY");
-                }}
-              >
-                <FolderPlus className="w-3 h-3" />
-              </button>
-            </>
-          )}
-
-          <button
-            type="button"
-            title={`Delete ${isDirectory ? "Folder" : "File"}`}
+        {/* Hover Action Buttons - shown ONLY when THIS item's row is hovered */}
+        {isHovered && (
+          <div
             className={cn(
-              "p-1 rounded",
-              isDark ? "hover:text-rose-400 hover:bg-rose-950/60" : "hover:text-rose-600 hover:bg-rose-50"
+              "flex items-center gap-0.5 ml-1 flex-shrink-0 shadow-2xs rounded px-1 border animate-in fade-in-50 duration-150",
+              isDark
+                ? "bg-slate-800 border-slate-700 text-slate-300"
+                : "bg-white/90 border-gray-200/80 text-gray-400"
             )}
-            onClick={(e) => {
-              e.stopPropagation();
-              onInitiateDelete(node);
-            }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <Trash2 className="w-3 h-3" />
-          </button>
-        </div>
+            {isDirectory && (
+              <>
+                <button
+                  type="button"
+                  title="New File in Folder"
+                  className={cn(
+                    "p-1 rounded",
+                    isDark ? "hover:text-primary hover:bg-slate-700" : "hover:text-primary hover:bg-gray-100"
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onInitiateCreate(node.path, "FILE");
+                  }}
+                >
+                  <FilePlus className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  title="New Folder in Folder"
+                  className={cn(
+                    "p-1 rounded",
+                    isDark ? "hover:text-amber-400 hover:bg-slate-700" : "hover:text-amber-600 hover:bg-gray-100"
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onInitiateCreate(node.path, "DIRECTORY");
+                  }}
+                >
+                  <FolderPlus className="w-3 h-3" />
+                </button>
+              </>
+            )}
+
+            <button
+              type="button"
+              title={`Rename ${isDirectory ? "Folder" : "File"}`}
+              className={cn(
+                "p-1 rounded",
+                isDark ? "hover:text-amber-400 hover:bg-slate-700" : "hover:text-amber-600 hover:bg-gray-100"
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onInitiateRename(node);
+              }}
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+
+            <button
+              type="button"
+              title={`Delete ${isDirectory ? "Folder" : "File"}`}
+              className={cn(
+                "p-1 rounded",
+                isDark ? "hover:text-rose-400 hover:bg-rose-950/60" : "hover:text-rose-600 hover:bg-rose-50"
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onInitiateDelete(node);
+              }}
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Recursive Children Rendering */}
@@ -221,6 +246,7 @@ const FileTreeItem = ({
               theme={theme}
               onSelectFile={onSelectFile}
               onInitiateCreate={onInitiateCreate}
+              onInitiateRename={onInitiateRename}
               onInitiateDelete={onInitiateDelete}
               level={level + 1}
             />
@@ -237,6 +263,7 @@ export const FileExplorer = ({
   theme = "dark",
   onSelectFile,
   onCreateFile,
+  onRenameFile,
   onDeleteFile,
   onRefresh,
   onCollapse,
@@ -251,10 +278,61 @@ export const FileExplorer = ({
   const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
   const [createError, setCreateError] = useState<string>("");
 
+  // Rename Modal State
+  const [nodeToRename, setNodeToRename] = useState<FileNode | null>(null);
+  const [renameInputName, setRenameInputName] = useState<string>("");
+  const [isSubmittingRename, setIsSubmittingRename] = useState(false);
+  const [renameError, setRenameError] = useState<string>("");
+
   // Delete Confirmation Modal State
   const [nodeToDelete, setNodeToDelete] = useState<FileNode | null>(null);
   const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string>("");
+
+  const handleStartRename = (targetNode: FileNode) => {
+    setRenameError("");
+    setNodeToRename(targetNode);
+    setRenameInputName(targetNode.name);
+  };
+
+  const handleConfirmRename = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!nodeToRename) return;
+    const cleanNewName = renameInputName.trim();
+    if (!cleanNewName) {
+      setRenameError("Name cannot be empty");
+      return;
+    }
+    if (cleanNewName === nodeToRename.name) {
+      setNodeToRename(null);
+      return;
+    }
+    if (cleanNewName.includes("/") || cleanNewName.includes("\\")) {
+      setRenameError("Name cannot contain slashes");
+      return;
+    }
+
+    const lastSlashIndex = nodeToRename.path.lastIndexOf("/");
+    const newPath =
+      lastSlashIndex !== -1
+        ? `${nodeToRename.path.substring(0, lastSlashIndex + 1)}${cleanNewName}`
+        : cleanNewName;
+
+    setIsSubmittingRename(true);
+    setRenameError("");
+
+    try {
+      if (onRenameFile) {
+        await onRenameFile(nodeToRename.path, newPath);
+      }
+      setNodeToRename(null);
+    } catch (err: any) {
+      console.error("File rename error:", err);
+      setRenameError(err.message || "Failed to rename item");
+    } finally {
+      setIsSubmittingRename(false);
+    }
+  };
 
   const handleStartCreate = (parentPath: string = "", type: "FILE" | "DIRECTORY" = "FILE") => {
     setCreateParentPath(parentPath);
@@ -349,8 +427,8 @@ export const FileExplorer = ({
             className={cn(
               "p-1 rounded transition-colors",
               isDark
-                ? "text-slate-400 hover:text-[#F05323] hover:bg-slate-800"
-                : "text-gray-500 hover:text-[#F05323] hover:bg-gray-200/70"
+                ? "text-slate-400 hover:text-primary hover:bg-slate-800"
+                : "text-gray-500 hover:text-primary hover:bg-gray-200/70"
             )}
           >
             <FilePlus className="w-3.5 h-3.5" />
@@ -409,12 +487,12 @@ export const FileExplorer = ({
             "p-2 border-b space-y-1 transition-colors",
             isDark
               ? "bg-slate-900 border-slate-700"
-              : "border-orange-200 bg-orange-50/50"
+              : "border-primary-border bg-primary-light/50"
           )}
         >
           <div className="flex items-center gap-1.5 text-[11px]">
             {createType === "FILE" ? (
-              <FilePlus className="w-3.5 h-3.5 text-[#F05323]" />
+              <FilePlus className="w-3.5 h-3.5 text-primary" />
             ) : (
               <FolderPlus className="w-3.5 h-3.5 text-amber-500" />
             )}
@@ -440,7 +518,7 @@ export const FileExplorer = ({
                 if (e.key === "Escape") handleCancelCreate();
               }}
               className={cn(
-                "flex-1 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-[#F05323]",
+                "flex-1 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary",
                 isDark
                   ? "bg-slate-950 border-slate-700 text-white placeholder-slate-500"
                   : "bg-white border-gray-300 text-gray-900"
@@ -449,7 +527,7 @@ export const FileExplorer = ({
             <button
               type="submit"
               disabled={isSubmittingCreate}
-              className="p-1 bg-[#F05323] text-white rounded hover:bg-[#d94417] disabled:opacity-50"
+              className="p-1 bg-primary text-white rounded hover:bg-primary-hover disabled:opacity-50"
               title="Confirm"
             >
               {isSubmittingCreate ? (
@@ -501,6 +579,7 @@ export const FileExplorer = ({
               theme={theme}
               onSelectFile={onSelectFile}
               onInitiateCreate={handleStartCreate}
+              onInitiateRename={handleStartRename}
               onInitiateDelete={(targetNode) => {
                 setDeleteError("");
                 setNodeToDelete(targetNode);
@@ -509,6 +588,95 @@ export const FileExplorer = ({
           ))
         )}
       </div>
+
+      {/* Rename Modal Dialog */}
+      {nodeToRename && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <form
+            onSubmit={handleConfirmRename}
+            className={cn(
+              "rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl border animate-in zoom-in-95",
+              isDark
+                ? "bg-slate-900 border-slate-700 text-slate-100"
+                : "bg-white border-gray-100 text-gray-900"
+            )}
+          >
+            <div className="w-10 h-10 rounded-full bg-primary-light0/10 text-primary flex items-center justify-center mx-auto">
+              <Pencil className="w-5 h-5" />
+            </div>
+
+            <div className="text-center space-y-1">
+              <h4 className="text-sm font-bold">
+                Rename {nodeToRename.type === "DIRECTORY" ? "Folder" : "File"}
+              </h4>
+              <p
+                className={cn(
+                  "text-xs break-all",
+                  isDark ? "text-slate-400" : "text-gray-500"
+                )}
+              >
+                Enter a new name for{" "}
+                <strong className={cn("font-mono", isDark ? "text-slate-200" : "text-gray-800")}>
+                  {nodeToRename.name}
+                </strong>
+              </p>
+            </div>
+
+            <div>
+              <input
+                type="text"
+                autoFocus
+                value={renameInputName}
+                onChange={(e) => setRenameInputName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setNodeToRename(null);
+                }}
+                className={cn(
+                  "w-full px-3 py-1.5 text-xs font-mono border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary",
+                  isDark
+                    ? "bg-slate-950 border-slate-700 text-white placeholder-slate-500"
+                    : "bg-white border-gray-300 text-gray-900"
+                )}
+              />
+            </div>
+
+            {renameError && (
+              <p className="text-xs text-rose-500 font-semibold text-center bg-rose-500/10 p-2 rounded-lg">
+                {renameError}
+              </p>
+            )}
+
+            <div className="flex items-center gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "flex-1 text-xs",
+                  isDark ? "border-slate-700 text-slate-300 hover:bg-slate-800" : ""
+                )}
+                disabled={isSubmittingRename}
+                onClick={() => setNodeToRename(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isSubmittingRename}
+                className="flex-1 text-xs bg-primary hover:bg-primary-hover text-white gap-1.5"
+              >
+                {isSubmittingRename ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Check className="w-3.5 h-3.5" />
+                )}
+                Rename
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal Dialog */}
       {nodeToDelete && (

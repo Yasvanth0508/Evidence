@@ -53,7 +53,7 @@ export const RecentAssessmentsTable = ({
         <h3 className="font-bold text-gray-900 text-base">Recent Assessments</h3>
         <Link
           to="/dashboard/assessments"
-          className="text-xs font-bold text-[#F05323] hover:underline"
+          className="text-xs font-bold text-primary hover:underline"
         >
           View All
         </Link>
@@ -111,7 +111,7 @@ export const RecentAssessmentsTable = ({
                 <TableCell className="text-right">
                   <Link
                     to={`/dashboard/candidates/${asmt.id}`}
-                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 hover:text-[#F05323] text-gray-400 transition-colors shadow-xs"
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 hover:text-primary text-gray-400 transition-colors shadow-xs"
                     title="View Candidate Report"
                   >
                     <Eye className="w-4 h-4" />
@@ -137,7 +137,7 @@ export const RecentAssessmentsTable = ({
               onClick={() => setCurrentPage(page)}
               className={`w-7 h-7 rounded-lg text-xs font-semibold transition-colors ${
                 currentPage === page
-                  ? "border border-orange-300 text-[#F05323] bg-orange-50/50"
+                  ? "border border-primary-border text-primary bg-primary-light/50"
                   : "text-gray-600 hover:bg-gray-50"
               }`}
             >

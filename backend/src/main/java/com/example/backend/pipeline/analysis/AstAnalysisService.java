@@ -31,11 +31,14 @@ public class AstAnalysisService {
     private final RepositoryAnalysisRepository repositoryAnalysisRepository;
     private final AssessmentRepository assessmentRepository;
     private final ObjectMapper objectMapper;
+    private final SourceCodeAnalyzer sourceCodeAnalyzer;
 
     public AstAnalysisService(RepositoryAnalysisRepository repositoryAnalysisRepository,
-                              AssessmentRepository assessmentRepository) {
+                              AssessmentRepository assessmentRepository,
+                              SourceCodeAnalyzer sourceCodeAnalyzer) {
         this.repositoryAnalysisRepository = repositoryAnalysisRepository;
         this.assessmentRepository = assessmentRepository;
+        this.sourceCodeAnalyzer = sourceCodeAnalyzer;
         this.objectMapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
     }
 
@@ -76,9 +79,7 @@ public class AstAnalysisService {
 
             projectStructure.setTotalJavaFiles(javaFiles.size());
 
-            // 3. Analyze each Java file using SpringBootSourceAnalyzer
-            SpringBootSourceAnalyzer analyzer = new SpringBootSourceAnalyzer();
-
+            // 3. Analyze each Java file using SourceCodeAnalyzer
             for (Path javaFile : javaFiles) {
                 try {
                     String content = Files.readString(javaFile);
@@ -86,13 +87,13 @@ public class AstAnalysisService {
                     if (pkgMatcher.find()) {
                         packageSet.add(pkgMatcher.group(1).trim());
                     }
-                    analyzer.analyzeJavaSource(content);
                 } catch (Exception ex) {
-                    log.warn("Failed to parse Java file {}: {}", javaFile.getFileName(), ex.getMessage());
+                    log.warn("Failed to extract package from Java file {}: {}", javaFile.getFileName(), ex.getMessage());
                 }
             }
-
             projectStructure.setPackages(new ArrayList<>(packageSet));
+            
+            SourceCodeStructureDto structureDto = sourceCodeAnalyzer.analyzeSourceCode(javaFiles);
 
             // Top-level files in backend root
             try (Stream<Path> stream = Files.list(targetBackendDir)) {
@@ -101,7 +102,7 @@ public class AstAnalysisService {
             } catch (Exception ignored) {
             }
 
-            SourceCodeStructureDto sourceCodeStructure = analyzer.getSourceCodeStructure();
+            SourceCodeStructureDto sourceCodeStructure = structureDto;
 
             // 4. Build Aggregated Content Details
             ContentDetailsDto contentDetails = buildContentDetails(sourceCodeStructure, projectStructure);

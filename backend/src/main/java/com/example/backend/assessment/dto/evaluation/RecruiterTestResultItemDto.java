@@ -26,6 +26,7 @@ public class RecruiterTestResultItemDto {
     private Integer actualStatusCode;
     private String expectedResponse;
     private String actualResponse;
+    private String assertions;
     private Long executionTimeMs;
     private BigDecimal weight;
     private String failureReason;

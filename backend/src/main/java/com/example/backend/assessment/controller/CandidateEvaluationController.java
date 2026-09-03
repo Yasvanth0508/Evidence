@@ -38,6 +38,7 @@ public class CandidateEvaluationController {
     @PostMapping("/submit")
     public ResponseEntity<ApiResponse<SubmissionResponse>> submitAssessment(
             @PathVariable String assessmentId,
+            @RequestBody(required = false) com.example.backend.assessment.dto.evaluation.SubmitAssessmentRequest request,
             @org.springframework.security.core.annotation.AuthenticationPrincipal com.example.backend.auth.security.UserPrincipal principal) {
         UUID aId = UUIDUtils.parseUuidOrNull(assessmentId);
         if (aId == null) {
@@ -45,8 +46,8 @@ public class CandidateEvaluationController {
         }
         if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
         UUID candidateId = principal.getId();
-        log.info("REST: Submit assessment {} by candidate {}", aId, candidateId);
-        SubmissionResponse response = evaluationService.submitAssessment(candidateId, aId);
+        log.info("REST: Submit assessment {} by candidate {} with request={}", aId, candidateId, request);
+        SubmissionResponse response = evaluationService.submitAssessment(candidateId, aId, request);
         return ResponseEntity.ok(ApiResponse.success("Assessment submitted successfully. Evaluation completed.", response));
     }
 

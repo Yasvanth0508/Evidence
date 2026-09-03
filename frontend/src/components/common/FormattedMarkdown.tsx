@@ -60,8 +60,8 @@ const renderInlineFormatting = (text: string, isDark: boolean): React.ReactNode 
           className={cn(
             "px-1.5 py-0.5 rounded font-mono text-[11px] font-semibold border",
             isDark
-              ? "bg-slate-950 border-slate-800 text-orange-400"
-              : "bg-orange-50 border-orange-200 text-[#F05323]"
+              ? "bg-slate-950 border-slate-800 text-primary"
+              : "bg-primary-light border-primary-border text-primary"
           )}
         >
           {codeText}
@@ -195,7 +195,7 @@ export const FormattedMarkdown = ({
           const itemText = trimmed.replace(/^[-*•]\s+/, "");
           return (
             <div key={idx} className="flex items-start gap-2 pl-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#F05323] flex-shrink-0 mt-1.5" />
+              <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0 mt-1.5" />
               <div className="flex-1">
                 {renderInlineFormatting(itemText, isDark)}
               </div>

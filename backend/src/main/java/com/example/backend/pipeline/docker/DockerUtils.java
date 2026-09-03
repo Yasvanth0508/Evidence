@@ -49,18 +49,18 @@ public final class DockerUtils {
         });
     }
 
-    public static boolean isDockerDaemonRunning(DockerCommandExecutor dockerExecutor) {
+    public static boolean isDockerDaemonRunning(ProcessCommandExecutor dockerExecutor) {
         if (dockerExecutor == null) {
             return false;
         }
-        DockerCommandExecutor.ProcessResult result = dockerExecutor.executeCommand(
+        ProcessCommandExecutor.ProcessResult result = dockerExecutor.executeCommand(
                 null, 10, "docker", "version", "--format", "{{.Server.Version}}"
         );
         if (result.isSuccess() && !result.stdout().isBlank()) {
             return true;
         }
         // Fallback check with docker info
-        DockerCommandExecutor.ProcessResult fallback = dockerExecutor.executeCommand(null, 10, "docker", "info");
+        ProcessCommandExecutor.ProcessResult fallback = dockerExecutor.executeCommand(null, 10, "docker", "info");
         return fallback.isSuccess();
     }
 

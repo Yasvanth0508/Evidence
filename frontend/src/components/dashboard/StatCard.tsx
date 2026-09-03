@@ -21,11 +21,11 @@ export const StatCard = ({
   isPositive,
   sparklineData,
   icon,
-  iconBgColor = "bg-blue-50 text-blue-600",
+  iconBgColor = "bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400",
   sparklineColor = "#3B82F6",
 }: StatCardProps) => {
   return (
-    <div className="bg-white border border-gray-200/90 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+    <div className="bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
       {/* Top Row: Icon & Title */}
       <div className="flex items-center gap-3 mb-2">
         <div
@@ -36,14 +36,14 @@ export const StatCard = ({
         >
           {icon}
         </div>
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <span className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide">
           {title}
         </span>
       </div>
 
       {/* Main Metric Value */}
       <div className="my-2">
-        <h3 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+        <h3 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
           {value}
         </h3>
       </div>
@@ -53,17 +53,17 @@ export const StatCard = ({
         {/* Trend Indicator */}
         <div className="flex items-center gap-1 text-xs font-bold">
           {isPositive ? (
-            <span className="text-emerald-600 flex items-center">
+            <span className="text-emerald-600 dark:text-emerald-400 flex items-center">
               <ArrowUpRight className="w-3.5 h-3.5" />
               {changePercentage}%
             </span>
           ) : (
-            <span className="text-rose-600 flex items-center">
+            <span className="text-rose-600 dark:text-rose-400 flex items-center">
               <ArrowDownRight className="w-3.5 h-3.5" />
               {changePercentage}%
             </span>
           )}
-          <span className="text-[11px] font-normal text-gray-400">vs last week</span>
+          <span className="text-[11px] font-normal text-gray-400 dark:text-slate-500">vs last week</span>
         </div>
 
         {/* Mini Sparkline Chart */}

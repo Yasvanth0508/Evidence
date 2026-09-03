@@ -348,18 +348,18 @@ export const WorkspaceDetailPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* 1. Breadcrumbs & Top Navigation Bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
+      {/* 1. Header Breadcrumbs & Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400 font-medium">
           <Link
             to="/dashboard/workspaces"
-            className="hover:text-gray-900 inline-flex items-center gap-1 transition-colors"
+            className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Workspaces
+            <span>Workspaces</span>
           </Link>
           <span>/</span>
-          <span className="text-gray-900 font-bold">{workspace.name}</span>
+          <span className="text-gray-900 dark:text-white font-bold">{workspace.name}</span>
         </div>
 
         <Button
@@ -369,7 +369,7 @@ export const WorkspaceDetailPage = () => {
             setStatusMessage(null);
             setIsAddCandidateModalOpen(true);
           }}
-          className="gap-2 font-semibold bg-[#F05323] hover:bg-[#d94417] text-white shadow-xs"
+          className="gap-2 font-semibold bg-primary hover:bg-primary-hover text-white shadow-xs"
         >
           <UserPlus className="w-4 h-4" />
           Add Candidate
@@ -377,39 +377,39 @@ export const WorkspaceDetailPage = () => {
       </div>
 
       {/* 2. Workspace Overview Banner */}
-      <div className="bg-white rounded-3xl border border-gray-200/90 p-6 sm:p-8 shadow-2xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-200/90 dark:border-slate-800 p-6 sm:p-8 shadow-2xs space-y-4 transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center text-[#F05323] flex-shrink-0">
-              <Folder className="w-7 h-7 fill-orange-100/60" />
+            <div className="w-14 h-14 rounded-2xl bg-primary-light dark:bg-primary/25 border border-primary-border/60 dark:border-primary/30 flex items-center justify-center text-primary dark:text-primary flex-shrink-0">
+              <Folder className="w-7 h-7 fill-primary/20 dark:dark:fill-primary/30" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
+                <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">
                   {workspace.name}
                 </h1>
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                   {workspace.status}
                 </span>
               </div>
-              <p className="text-xs text-gray-600 mt-1 max-w-2xl leading-relaxed">
+              <p className="text-xs text-gray-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">
                 {workspace.description || "Workspace candidate assessment and evaluation hub"}
               </p>
             </div>
           </div>
 
           {/* Quick Metrics */}
-          <div className="flex items-center gap-4 border-t sm:border-t-0 sm:border-l border-gray-100 pt-3 sm:pt-0 sm:pl-6">
+          <div className="flex items-center gap-4 border-t sm:border-t-0 sm:border-l border-gray-100 dark:border-slate-800 pt-3 sm:pt-0 sm:pl-6">
             <div>
-              <span className="text-[11px] font-medium text-gray-400 block">Total Candidates</span>
-              <span className="text-xl font-extrabold text-gray-900 block">
+              <span className="text-[11px] font-medium text-gray-400 dark:text-slate-500 block">Total Candidates</span>
+              <span className="text-xl font-extrabold text-gray-900 dark:text-white block">
                 {workspaceCandidates.length}
               </span>
             </div>
-            <div className="h-8 w-px bg-gray-100"></div>
+            <div className="h-8 w-px bg-gray-100 dark:bg-slate-800"></div>
             <div>
-              <span className="text-[11px] font-medium text-gray-400 block">Assessment Track</span>
-              <span className="text-xs font-bold text-[#F05323] block max-w-[140px] truncate">
+              <span className="text-[11px] font-medium text-gray-400 dark:text-slate-500 block">Assessment Track</span>
+              <span className="text-xs font-bold text-primary dark:text-primary block max-w-[140px] truncate">
                 {workspace.track}
               </span>
             </div>
@@ -418,22 +418,22 @@ export const WorkspaceDetailPage = () => {
       </div>
 
       {/* 3. Candidates List Table */}
-      <div className="bg-white rounded-3xl border border-gray-200/90 shadow-2xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-gray-200/90 dark:border-slate-800 shadow-2xs overflow-hidden transition-colors">
         {/* Table Header Filter */}
-        <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:max-w-xs">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
             <Input
               type="text"
               placeholder="Search candidate by name or email..."
               value={tableSearch}
               onChange={(e) => setTableSearch(e.target.value)}
-              className="pl-9 text-xs h-9 bg-gray-50/70 border-gray-200"
+              className="pl-9 text-xs h-9 bg-gray-50/70 dark:bg-slate-800 border-gray-200 dark:border-slate-700"
             />
           </div>
 
-          <div className="text-xs text-gray-500 font-medium self-end sm:self-center">
-            Showing <strong className="text-gray-900">{filteredWorkspaceCandidates.length}</strong> candidates
+          <div className="text-xs text-gray-500 dark:text-slate-400 font-medium self-end sm:self-center">
+            Showing <strong className="text-gray-900 dark:text-white">{filteredWorkspaceCandidates.length}</strong> candidates
           </div>
         </div>
 
@@ -452,7 +452,7 @@ export const WorkspaceDetailPage = () => {
                 setStatusMessage(null);
                 setIsAddCandidateModalOpen(true);
               }}
-              className="gap-1.5 font-semibold bg-[#F05323] hover:bg-[#d94417] text-xs"
+              className="gap-1.5 font-semibold bg-primary hover:bg-primary-hover text-xs"
             >
               <UserPlus className="w-3.5 h-3.5" /> Add First Candidate
             </Button>
@@ -460,7 +460,7 @@ export const WorkspaceDetailPage = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50/80 text-gray-500 font-semibold uppercase tracking-wider border-b border-gray-100">
+              <thead className="bg-gray-50/80 dark:bg-slate-800 text-gray-500 dark:text-slate-400 font-semibold uppercase tracking-wider border-b border-gray-100 dark:border-slate-800">
                 <tr>
                   <th className="px-6 py-3.5">Candidate</th>
                   <th className="px-6 py-3.5">Email</th>
@@ -469,7 +469,7 @@ export const WorkspaceDetailPage = () => {
                   <th className="px-6 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                 {filteredWorkspaceCandidates.map((c) => (
                   <tr
                     key={c.id}
@@ -478,7 +478,7 @@ export const WorkspaceDetailPage = () => {
                         `/dashboard/workspaces/${workspaceId}/candidates/${c.id}`
                       )
                     }
-                    className="hover:bg-orange-50/30 transition-colors cursor-pointer group"
+                    className="hover:bg-primary-light/30 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group"
                   >
                     {/* Candidate Name & Avatar */}
                     <td className="px-6 py-4">
@@ -489,13 +489,13 @@ export const WorkspaceDetailPage = () => {
                             `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80`
                           }
                           alt={c.name}
-                          className="w-9 h-9 rounded-full object-cover border border-gray-200"
+                          className="w-9 h-9 rounded-full object-cover border border-gray-200 dark:border-slate-700"
                         />
                         <div>
-                          <span className="font-bold text-gray-900 group-hover:text-[#F05323] transition-colors block">
+                          <span className="font-bold text-gray-900 dark:text-white group-hover:text-primary dark:group-hover:text-primary transition-colors block">
                             {c.name}
                           </span>
-                          <span className="text-[11px] text-gray-400 block font-mono">
+                          <span className="text-[11px] text-gray-400 dark:text-slate-500 block font-mono">
                             {c.id}
                           </span>
                         </div>
@@ -503,13 +503,13 @@ export const WorkspaceDetailPage = () => {
                     </td>
 
                     {/* Email */}
-                    <td className="px-6 py-4 font-mono text-gray-600">
+                    <td className="px-6 py-4 font-mono text-gray-600 dark:text-slate-400">
                       {c.email}
                     </td>
 
                     {/* Role */}
                     <td className="px-6 py-4">
-                      <span className="text-gray-700 font-medium">{c.role}</span>
+                      <span className="text-gray-700 dark:text-slate-300 font-medium">{c.role}</span>
                     </td>
 
                     {/* Assessment Status */}
@@ -521,7 +521,7 @@ export const WorkspaceDetailPage = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="inline-flex items-center gap-3">
                         <div
-                          className="inline-flex items-center gap-1 font-semibold text-[#F05323] group-hover:translate-x-0.5 transition-transform"
+                          className="inline-flex items-center gap-1 font-semibold text-primary dark:text-primary group-hover:translate-x-0.5 transition-transform"
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(
@@ -537,7 +537,7 @@ export const WorkspaceDetailPage = () => {
                           type="button"
                           title="Remove candidate from workspace"
                           onClick={(e) => handleRemoveCandidate(e, c.id, c.name)}
-                          className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                          className="p-1 text-gray-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -554,18 +554,18 @@ export const WorkspaceDetailPage = () => {
       {/* 4. Add Candidate Modal */}
       {isAddCandidateModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-5 animate-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-gray-100 dark:border-slate-800 space-y-5 animate-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-orange-50 text-[#F05323] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-primary-light dark:bg-primary/25 text-primary dark:text-primary flex items-center justify-center">
                   <UserPlus className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-extrabold text-gray-900">
+                  <h3 className="text-lg font-extrabold text-gray-900 dark:text-white">
                     Add Candidate to {workspace.name}
                   </h3>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-slate-400">
                     Click a candidate to select and enroll them in this workspace.
                   </p>
                 </div>
@@ -576,24 +576,24 @@ export const WorkspaceDetailPage = () => {
                   setIsAddCandidateModalOpen(false);
                   setStatusMessage(null);
                 }}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
+                className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 flex items-center justify-center text-gray-500 dark:text-slate-400 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Mode Switcher Tabs (Search Existing vs Create Profile) */}
-            <div className="flex p-1 bg-gray-100 rounded-xl">
+            <div className="flex p-1 bg-gray-100 dark:bg-slate-800 rounded-xl">
               <button
                 type="button"
                 onClick={() => {
                   setShowCreateTab(false);
                   setStatusMessage(null);
                 }}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   !showCreateTab
-                    ? "bg-white text-gray-900 shadow-2xs"
-                    : "text-gray-500 hover:text-gray-900"
+                    ? "bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-2xs"
+                    : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
                 }`}
               >
                 Search Existing Candidates
@@ -604,10 +604,10 @@ export const WorkspaceDetailPage = () => {
                   setShowCreateTab(true);
                   setStatusMessage(null);
                 }}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   showCreateTab
-                    ? "bg-white text-[#F05323] shadow-2xs"
-                    : "text-gray-500 hover:text-gray-900"
+                    ? "bg-white dark:bg-slate-700 text-primary dark:text-primary shadow-2xs"
+                    : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
                 }`}
               >
                 Add New Candidate Profile
@@ -619,8 +619,8 @@ export const WorkspaceDetailPage = () => {
               <div
                 className={`p-3 rounded-xl border text-xs font-medium ${
                   statusMessage.type === "success"
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                    : "bg-rose-50 border-rose-200 text-rose-700"
+                    ? "bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300"
+                    : "bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400"
                 }`}
               >
                 {statusMessage.text}
@@ -632,7 +632,7 @@ export const WorkspaceDetailPage = () => {
               <div className="space-y-4">
                 {/* Search Bar */}
                 <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
                   <Input
                     type="text"
                     placeholder="Search candidate by name or email (e.g. Priya, priya@gmail.com)..."
@@ -646,7 +646,7 @@ export const WorkspaceDetailPage = () => {
                 {/* Search Results List */}
                 <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
                   {searchableCandidates.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-gray-400 space-y-2">
+                    <div className="py-8 text-center text-xs text-gray-400 dark:text-slate-500 space-y-2">
                       <p>No candidates found matching "{candidateSearchQuery}".</p>
                       <button
                         type="button"
@@ -654,7 +654,7 @@ export const WorkspaceDetailPage = () => {
                           setShowCreateTab(true);
                           setNewCandidateEmail(candidateSearchQuery);
                         }}
-                        className="text-[#F05323] font-bold hover:underline"
+                        className="text-primary dark:text-primary font-bold hover:underline"
                       >
                         Create candidate profile instead →
                       </button>
@@ -670,8 +670,8 @@ export const WorkspaceDetailPage = () => {
                           onClick={() => handleSelectCandidate(cand.id)}
                           className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
                             isSelected
-                              ? "bg-orange-50/90 border-[#F05323] ring-2 ring-[#F05323]/20 shadow-xs"
-                              : "bg-white border-gray-200 hover:border-orange-300 hover:bg-orange-50/30"
+                              ? "bg-primary-light/90 dark:bg-primary/25 border-primary dark:border-primary ring-2 ring-primary/20 shadow-xs"
+                              : "bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:border-primary-border dark:hover:border-primary/50 hover:bg-primary-light/30 dark:hover:bg-slate-750"
                           }`}
                         >
                           <div className="flex items-center gap-3">
@@ -681,16 +681,16 @@ export const WorkspaceDetailPage = () => {
                                 "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80"
                               }
                               alt={cand.name}
-                              className="w-9 h-9 rounded-full object-cover border border-gray-200"
+                              className="w-9 h-9 rounded-full object-cover border border-gray-200 dark:border-slate-700"
                             />
                             <div>
-                              <span className="font-bold text-xs text-gray-900 block leading-tight">
+                              <span className="font-bold text-xs text-gray-900 dark:text-white block leading-tight">
                                 {cand.name}
                               </span>
-                              <span className="text-[11px] text-gray-500 font-mono">
+                              <span className="text-[11px] text-gray-500 dark:text-slate-400 font-mono">
                                 {cand.email}
                               </span>
-                              <span className="text-[10px] text-gray-400 block mt-0.5">
+                              <span className="text-[10px] text-gray-400 dark:text-slate-500 block mt-0.5">
                                 {cand.role}
                               </span>
                             </div>
@@ -698,7 +698,7 @@ export const WorkspaceDetailPage = () => {
 
                           <div className="flex items-center gap-2">
                             {isAlreadyInWs && (
-                              <span className="text-[10px] font-bold text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
+                              <span className="text-[10px] font-bold text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 px-2 py-0.5 rounded-full">
                                 In Workspace
                               </span>
                             )}
@@ -707,8 +707,8 @@ export const WorkspaceDetailPage = () => {
                             <div
                               className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${
                                 isSelected
-                                  ? "bg-[#F05323] text-white shadow-xs"
-                                  : "border-2 border-gray-300 bg-white"
+                                  ? "bg-primary text-white shadow-xs"
+                                  : "border-2 border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800"
                               }`}
                             >
                               {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -722,18 +722,18 @@ export const WorkspaceDetailPage = () => {
 
                 {/* Selected candidate notification */}
                 {selectedCandidateId && (
-                  <div className="p-2.5 rounded-xl bg-orange-50/60 border border-orange-200/80 text-xs text-gray-700 flex items-center justify-between">
+                  <div className="p-2.5 rounded-xl bg-primary-light/60 dark:bg-primary/20 border border-primary-border/80 dark:border-primary/30 text-xs text-gray-700 dark:text-slate-300 flex items-center justify-between">
                     <span>
                       Selected: <strong>{globalCandidates.find((c) => c.id === selectedCandidateId)?.name}</strong>
                     </span>
-                    <span className="text-[11px] text-[#F05323] font-semibold">
+                    <span className="text-[11px] text-primary dark:text-primary font-semibold">
                       Ready to add
                     </span>
                   </div>
                 )}
 
                 {/* Footer Buttons */}
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100 dark:border-slate-800">
                   <Button
                     type="button"
                     variant="outline"
@@ -748,7 +748,7 @@ export const WorkspaceDetailPage = () => {
                     disabled={!selectedCandidateId}
                     onClick={handleAddExistingCandidate}
                     size="sm"
-                    className="text-xs font-semibold gap-2 bg-[#F05323] hover:bg-[#d94417] text-white shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="text-xs font-semibold gap-2 bg-primary hover:bg-primary-hover text-white shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                     Add Candidate to Workspace
@@ -759,8 +759,8 @@ export const WorkspaceDetailPage = () => {
               /* Create New Candidate Profile Form */
               <form onSubmit={handleCreateAndAddCandidate} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 block">
-                    Full Name <span className="text-[#F05323]">*</span>
+                  <label className="text-xs font-bold text-gray-700 dark:text-slate-300 block">
+                    Full Name <span className="text-primary">*</span>
                   </label>
                   <Input
                     type="text"
@@ -768,14 +768,14 @@ export const WorkspaceDetailPage = () => {
                     placeholder="e.g. Priya S"
                     value={newCandidateName}
                     onChange={(e) => setNewCandidateName(e.target.value)}
-                    icon={<User className="w-4 h-4 text-gray-400" />}
+                    icon={<User className="w-4 h-4 text-gray-400 dark:text-slate-500" />}
                     className="text-xs"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 block">
-                    Email Address <span className="text-[#F05323]">*</span>
+                  <label className="text-xs font-bold text-gray-700 dark:text-slate-300 block">
+                    Email Address <span className="text-primary">*</span>
                   </label>
                   <Input
                     type="email"
@@ -783,16 +783,16 @@ export const WorkspaceDetailPage = () => {
                     placeholder="e.g. priya@gmail.com"
                     value={newCandidateEmail}
                     onChange={(e) => setNewCandidateEmail(e.target.value)}
-                    icon={<Mail className="w-4 h-4 text-gray-400" />}
+                    icon={<Mail className="w-4 h-4 text-gray-400 dark:text-slate-500" />}
                     className="text-xs"
                   />
-                  <p className="text-[11px] text-gray-400">
+                  <p className="text-[11px] text-gray-400 dark:text-slate-500">
                     Candidate will be matched or registered with this unique email address.
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 block">
+                  <label className="text-xs font-bold text-gray-700 dark:text-slate-300 block">
                     Role / Position
                   </label>
                   <Input
@@ -805,7 +805,7 @@ export const WorkspaceDetailPage = () => {
                 </div>
 
                 {/* Footer Buttons */}
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100 dark:border-slate-800">
                   <Button
                     type="button"
                     variant="outline"
@@ -818,7 +818,7 @@ export const WorkspaceDetailPage = () => {
                   <Button
                     type="submit"
                     size="sm"
-                    className="text-xs font-semibold gap-2 bg-[#F05323] hover:bg-[#d94417] text-white shadow-xs"
+                    className="text-xs font-semibold gap-2 bg-primary hover:bg-primary-hover text-white shadow-xs"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                     Create & Add Candidate

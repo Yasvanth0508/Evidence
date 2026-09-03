@@ -10,19 +10,30 @@ export interface RecruiterDashboardData {
 
 export interface CandidateDashboardData {
   scheduledAssessments: Array<{
+    id?: string;
     assessmentId: string;
+    title: string;
+    workspaceId?: string;
     workspaceName: string;
     difficulty: string;
     scheduledStartAt: string;
     scheduledEndAt: string;
     durationMinutes: number;
+    status?: string;
   }>;
   completedAssessments: Array<{
+    id?: string;
     assessmentId: string;
+    title: string;
+    workspaceId?: string;
     workspaceName: string;
-    difficulty: string;
+    difficulty?: string;
     score: number;
-    completedAt: string;
+    completedAt?: string;
+    submittedAt?: string;
+    durationMinutes?: number;
+    timeTakenSeconds?: number;
+    status?: string;
   }>;
 }
 

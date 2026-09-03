@@ -1,17 +1,16 @@
 package com.example.backend.assessment.service;
 
-import com.example.backend.assessment.dto.evaluation.CandidateResultResponse;
-import com.example.backend.assessment.dto.evaluation.RecruiterReportResponse;
-import com.example.backend.assessment.dto.evaluation.RecruiterTestResultItemDto;
-import com.example.backend.assessment.dto.evaluation.SubmissionResponse;
+import com.example.backend.assessment.dto.evaluation.*;
 import com.example.backend.assessment.entity.*;
 import com.example.backend.assessment.repository.*;
 import com.example.backend.common.enums.*;
 import com.example.backend.common.exception.ForbiddenException;
 import com.example.backend.common.exception.ResourceNotFoundException;
-import com.example.backend.pipeline.docker.DockerCommandExecutor;
+import com.example.backend.pipeline.docker.ProcessCommandExecutor;
 import com.example.backend.pipeline.docker.DockerUtils;
 import com.example.backend.workspace.dto.CandidateSummaryDto;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -44,7 +43,10 @@ public class CandidateEvaluationService {
     private final CandidateWorkspaceService candidateWorkspaceService;
     private final CandidateExecutionService executionService;
     private final BlackBoxTestRunnerService testRunnerService;
-    private final DockerCommandExecutor dockerExecutor;
+    private final ProcessCommandExecutor dockerExecutor;
+    private final AiEvaluationService aiEvaluationService;
+    private final FeatureSpecificationRepository featureSpecificationRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Submits an assessment, triggers automated Maven packaging, boots an evaluation
@@ -58,7 +60,12 @@ public class CandidateEvaluationService {
      */
     @Transactional
     public SubmissionResponse submitAssessment(UUID candidateId, UUID assessmentId) {
-        log.info("Candidate {} is submitting assessment {}", candidateId, assessmentId);
+        return submitAssessment(candidateId, assessmentId, null);
+    }
+
+    @Transactional
+    public SubmissionResponse submitAssessment(UUID candidateId, UUID assessmentId, SubmitAssessmentRequest request) {
+        log.info("Candidate {} is submitting assessment {} with proctoring request={}", candidateId, assessmentId, request);
 
         Assessment assessment = assessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assessment not found: " + assessmentId));
@@ -221,32 +228,14 @@ public class CandidateEvaluationService {
             testResultRepository.save(tr);
         }
 
-        // 6. Calculate Weighted Score & Summary Counts
-        int totalTests = testCases.size();
-        int passedTests = 0;
-        int failedTests = 0;
-        BigDecimal totalWeight = BigDecimal.ZERO;
-        BigDecimal passedWeight = BigDecimal.ZERO;
+        ScoreCalculator calculator = new ScoreCalculator();
+        ScoreCalculator.ScoreResult scoreResult = calculator.calculate(testCases, testResults);
 
-        for (TestResult tr : testResults) {
-            TestCase tc = tr.getTestCase();
-            BigDecimal weight = tc.getWeight() != null ? tc.getWeight() : BigDecimal.ONE;
-            totalWeight = totalWeight.add(weight);
+        int totalTests = scoreResult.getTotalTests();
+        int passedTests = scoreResult.getPassedTests();
+        int failedTests = scoreResult.getFailedTests();
+        BigDecimal finalScore = scoreResult.getFinalScore();
 
-            if (tr.getStatus() == TestResultStatus.PASSED) {
-                passedTests++;
-                passedWeight = passedWeight.add(weight);
-            } else {
-                failedTests++;
-            }
-        }
-
-        BigDecimal finalScore = BigDecimal.ZERO;
-        if (totalWeight.compareTo(BigDecimal.ZERO) > 0) {
-            finalScore = passedWeight.divide(totalWeight, 4, RoundingMode.HALF_UP)
-                    .multiply(BigDecimal.valueOf(100))
-                    .setScale(2, RoundingMode.HALF_UP);
-        }
 
         // 7. Persist Evaluation Report
         EvaluationReport report = evaluationReportRepository.findBySubmissionId(submission.getId())
@@ -265,6 +254,39 @@ public class CandidateEvaluationService {
         report.setTimeTakenSeconds(timeTakenSeconds);
         report.setStatus(SubmissionStatus.COMPLETED);
         report.setEvaluatedAt(Instant.now());
+
+        // Generate AI Evaluation Insights (Mistral AI or deterministic fallback)
+        FeatureSpecification featureSpec = featureSpecificationRepository.findByAssessmentId(assessmentId).orElse(null);
+        AiEvaluationService.EvaluationInsights insights = aiEvaluationService.generateInsights(
+                assessment,
+                featureSpec,
+                buildStatus,
+                testCases,
+                testResults,
+                finalScore,
+                request != null ? request.getTabSwitchCount() : 0,
+                request != null ? request.getCopyPasteEvents() : 0,
+                request != null ? request.getIdleTimeMinutes() : 2
+        );
+
+        report.setScoreRating(insights.getScoreRating());
+        report.setAiSummary(insights.getAiSummary());
+        try {
+            report.setStrengthsJson(objectMapper.writeValueAsString(insights.getStrengths()));
+            report.setImprovementsJson(objectMapper.writeValueAsString(insights.getImprovements()));
+        } catch (Exception ignored) {}
+        report.setBusinessLogicTotal(insights.getBusinessLogicTotal());
+        report.setBusinessLogicPassed(insights.getBusinessLogicPassed());
+        report.setSyntaxTotal(insights.getSyntaxTotal());
+        report.setSyntaxPassed(insights.getSyntaxPassed());
+        report.setDataFlowTotal(insights.getDataFlowTotal());
+        report.setDataFlowPassed(insights.getDataFlowPassed());
+        report.setCopyPasteEvents(insights.getCopyPasteEvents());
+        report.setTabSwitchCount(insights.getTabSwitchCount());
+        report.setBuildRuns(insights.getBuildRuns());
+        report.setRiskAnalysis(insights.getRiskAnalysis());
+        report.setOverallRiskBadge(insights.getOverallRiskBadge());
+
         evaluationReportRepository.save(report);
 
         submission.setStatus(SubmissionStatus.COMPLETED);
@@ -305,15 +327,38 @@ public class CandidateEvaluationService {
         EvaluationReport report = evaluationReportRepository.findBySubmissionId(submission.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation report not yet generated"));
 
+        long timeTaken = report.getTimeTakenSeconds() != null ? report.getTimeTakenSeconds() : 0L;
+        int timeTakenMins = Math.max(1, (int) Math.round((double) timeTaken / 60));
+
+        String title = assessment.getTitle() != null && !assessment.getTitle().isBlank()
+                ? assessment.getTitle()
+                : (assessment.getWorkspace() != null ? assessment.getWorkspace().getName() + " Assessment" : "Technical Assessment");
+
+        String workspaceName = assessment.getWorkspace() != null ? assessment.getWorkspace().getName() : "General";
+        String difficulty = assessment.getDifficulty() != null ? assessment.getDifficulty().name() : "INTERMEDIATE";
+
         return CandidateResultResponse.builder()
                 .assessmentId(assessmentId)
+                .title(title)
+                .workspaceName(workspaceName)
+                .difficulty(difficulty)
+                .techStack("Java 21, Spring Boot, Maven, PostgreSQL")
                 .score(report.getScore())
+                .scoreRating(report.getScoreRating() != null ? report.getScoreRating() : "Needs Improvement")
                 .status(assessment.getStatus())
                 .totalTests(report.getTotalTests())
                 .passedTests(report.getPassedTests())
                 .failedTests(report.getFailedTests())
-                .timeTakenSeconds(report.getTimeTakenSeconds())
+                .buildStatus(report.getBuildStatus())
+                .applicationStatus(report.getApplicationStatus())
+                .timeTakenSeconds(timeTaken)
+                .timeTakenMinutes(timeTakenMins)
+                .evaluatedAt(report.getEvaluatedAt())
                 .submittedAt(submission.getSubmittedAt())
+                .categoryBreakdown(buildCategoryBreakdown(report))
+                .aiSummary(getAiSummarySafe(report))
+                .strengths(parseJsonList(report.getStrengthsJson(), List.of("REST API Controller Implementation", "Spring Data JPA Architecture")))
+                .improvements(parseJsonList(report.getImprovementsJson(), List.of("Edge Case Exception Handling", "Response Body Schema Validation")))
                 .build();
     }
 
@@ -351,18 +396,51 @@ public class CandidateEvaluationService {
         int passedTests = reportOpt.map(EvaluationReport::getPassedTests).orElse(0);
         int failedTests = reportOpt.map(EvaluationReport::getFailedTests).orElse(0);
         long timeTaken = reportOpt.map(EvaluationReport::getTimeTakenSeconds).orElse(0L);
+        int timeTakenMins = Math.max(1, (int) Math.round((double) timeTaken / 60));
         Instant evaluatedAt = reportOpt.map(EvaluationReport::getEvaluatedAt).orElse(assessment.getUpdatedAt());
+        Instant submittedAt = submissionOpt.map(Submission::getSubmittedAt).orElse(evaluatedAt);
+
+        String title = assessment.getTitle() != null && !assessment.getTitle().isBlank()
+                ? assessment.getTitle()
+                : (assessment.getWorkspace() != null ? assessment.getWorkspace().getName() + " Assessment" : "Technical Assessment");
+        String workspaceName = assessment.getWorkspace() != null ? assessment.getWorkspace().getName() : "General";
+        UUID workspaceId = assessment.getWorkspace() != null ? assessment.getWorkspace().getId() : null;
+        String difficulty = assessment.getDifficulty() != null ? assessment.getDifficulty().name() : "INTERMEDIATE";
 
         return RecruiterReportResponse.builder()
                 .assessmentId(assessmentId)
+                .title(title)
+                .workspaceId(workspaceId)
+                .workspaceName(workspaceName)
+                .difficulty(difficulty)
+                .techStack("Java 21, Spring Boot, Maven, PostgreSQL")
                 .candidate(candidateDto)
                 .score(score)
+                .scoreRating(reportOpt.map(EvaluationReport::getScoreRating).orElse("Needs Improvement"))
                 .totalTests(totalTests)
                 .passedTests(passedTests)
                 .failedTests(failedTests)
+                .buildStatus(reportOpt.map(EvaluationReport::getBuildStatus).orElse(BuildStatus.SUCCESS))
+                .applicationStatus(reportOpt.map(EvaluationReport::getApplicationStatus).orElse(ApplicationStatus.STARTED))
                 .timeTakenSeconds(timeTaken)
+                .timeTakenMinutes(timeTakenMins)
                 .status(assessment.getStatus())
                 .evaluatedAt(evaluatedAt)
+                .submittedAt(submittedAt)
+                .categoryBreakdown(reportOpt.map(this::buildCategoryBreakdown).orElse(Collections.emptyList()))
+                .aiSummary(reportOpt.map(this::getAiSummarySafe).orElse("Evaluation report generated from automated test execution."))
+                .strengths(reportOpt.map(r -> parseJsonList(r.getStrengthsJson(), List.of("REST API Controller Implementation", "Spring Data JPA Architecture"))).orElse(List.of("REST API Controller Implementation")))
+                .improvements(reportOpt.map(r -> parseJsonList(r.getImprovementsJson(), List.of("Edge Case Exception Handling", "Response Body Schema Validation"))).orElse(List.of("Edge Case Exception Handling")))
+                .integrity(IntegritySummaryDto.builder()
+                        .overallRiskBadge(reportOpt.map(EvaluationReport::getOverallRiskBadge).orElse("LOW"))
+                        .behaviorSummary(IntegritySummaryDto.BehaviorSummaryDto.builder()
+                                .copyPasteEvents(reportOpt.map(EvaluationReport::getCopyPasteEvents).orElse(0))
+                                .buildRuns(reportOpt.map(EvaluationReport::getBuildRuns).orElse(1))
+                                .testRuns(totalTests)
+                                .idleTimeMinutes(2)
+                                .build())
+                        .riskAnalysis(reportOpt.map(EvaluationReport::getRiskAnalysis).orElse("No suspicious activity detected. Valid coding session verified."))
+                        .build())
                 .build();
     }
 
@@ -397,11 +475,61 @@ public class CandidateEvaluationService {
                 .actualStatusCode(tr.getActualStatusCode())
                 .expectedResponse(tr.getTestCase().getExpectedResponse())
                 .actualResponse(tr.getActualResponse())
+                .assertions(tr.getTestCase().getAssertions())
                 .executionTimeMs(tr.getExecutionTimeMs())
                 .weight(tr.getTestCase().getWeight())
                 .failureReason(tr.getFailureReason())
                 .build()
         ).collect(Collectors.toList());
+    }
+
+    private List<CategoryScoreDto> buildCategoryBreakdown(EvaluationReport report) {
+        List<CategoryScoreDto> list = new ArrayList<>();
+        int blTot = report.getBusinessLogicTotal() != null ? report.getBusinessLogicTotal() : 0;
+        int blPas = report.getBusinessLogicPassed() != null ? report.getBusinessLogicPassed() : 0;
+        int synTot = report.getSyntaxTotal() != null ? report.getSyntaxTotal() : 0;
+        int synPas = report.getSyntaxPassed() != null ? report.getSyntaxPassed() : 0;
+        int dfTot = report.getDataFlowTotal() != null ? report.getDataFlowTotal() : 0;
+        int dfPas = report.getDataFlowPassed() != null ? report.getDataFlowPassed() : 0;
+
+        if (blTot > 0) {
+            list.add(new CategoryScoreDto("Business Logic", blTot, blPas, (int) Math.round(((double) blPas / blTot) * 100)));
+        }
+        if (synTot > 0) {
+            list.add(new CategoryScoreDto("Syntax", synTot, synPas, (int) Math.round(((double) synPas / synTot) * 100)));
+        }
+        if (dfTot > 0) {
+            list.add(new CategoryScoreDto("Data Flow", dfTot, dfPas, (int) Math.round(((double) dfPas / dfTot) * 100)));
+        }
+        if (list.isEmpty() && report.getTotalTests() != null && report.getTotalTests() > 0) {
+            int tot = report.getTotalTests();
+            int pas = report.getPassedTests() != null ? report.getPassedTests() : 0;
+            list.add(new CategoryScoreDto("Business Logic", tot, pas, (int) Math.round(((double) pas / tot) * 100)));
+        }
+        return list;
+    }
+
+    private List<String> parseJsonList(String json, List<String> fallback) {
+        if (json != null && !json.isBlank()) {
+            try {
+                return objectMapper.readValue(json, new TypeReference<List<String>>() {});
+            } catch (Exception ignored) {}
+        }
+        return fallback != null ? fallback : Collections.emptyList();
+    }
+
+    private String getAiSummarySafe(EvaluationReport report) {
+        if (report.getAiSummary() != null && !report.getAiSummary().isBlank()) {
+            return report.getAiSummary();
+        }
+        BigDecimal score = report.getScore() != null ? report.getScore() : BigDecimal.ZERO;
+        if (score.compareTo(BigDecimal.valueOf(80)) >= 0) {
+            return "The candidate demonstrated strong engineering competency with clean REST API architecture and robust test verification.";
+        } else if (score.compareTo(BigDecimal.valueOf(60)) >= 0) {
+            return "The candidate completed the core requirements successfully with solid Spring Boot fundamentals. Minor test assertions failed.";
+        } else {
+            return "The candidate completed the assessment with partial requirement completion. Several functional assertions require refinement.";
+        }
     }
 
     private boolean waitForPort(int port, int timeoutSeconds) {

@@ -2,7 +2,8 @@ package com.example.backend.candidate.controller;
 
 import com.example.backend.candidate.dto.CandidateAssessmentItemResponse;
 import com.example.backend.candidate.dto.CandidateSearchResponse;
-import com.example.backend.candidate.service.CandidateService;
+import com.example.backend.candidate.service.CandidateLookupService;
+import com.example.backend.candidate.service.CandidateAssessmentHistoryService;
 import com.example.backend.common.dto.ApiResponse;
 import com.example.backend.common.exception.BadRequestException;
 import com.example.backend.common.util.UUIDUtils;
@@ -21,13 +22,14 @@ import java.util.UUID;
 @CrossOrigin(originPatterns = "*")
 public class CandidateController {
 
-    private final CandidateService candidateService;
+    private final CandidateLookupService candidateLookupService;
+    private final CandidateAssessmentHistoryService candidateAssessmentHistoryService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<CandidateSearchResponse>>> getCandidates(
             @RequestParam(value = "query", required = false) String query) {
         log.info("Fetching candidates with query: {}", query);
-        List<CandidateSearchResponse> response = candidateService.getAllCandidates(query);
+        List<CandidateSearchResponse> response = candidateLookupService.getAllCandidates(query);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -35,7 +37,7 @@ public class CandidateController {
     public ResponseEntity<ApiResponse<CandidateSearchResponse>> searchCandidateByEmail(
             @RequestParam("email") String email) {
         log.info("Searching for candidate by email: {}", email);
-        CandidateSearchResponse response = candidateService.searchCandidateByEmail(email);
+        CandidateSearchResponse response = candidateLookupService.searchCandidateByEmail(email);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -50,7 +52,7 @@ public class CandidateController {
         if (principal == null) throw new com.example.backend.common.exception.UnauthorizedException("Not authenticated");
         UUID recruiterId = principal.getId();
         log.info("Fetching assessments for candidate ID: {} by recruiter ID: {}", candId, recruiterId);
-        List<CandidateAssessmentItemResponse> response = candidateService.getCandidateAssessmentsForRecruiter(recruiterId, candId);
+        List<CandidateAssessmentItemResponse> response = candidateAssessmentHistoryService.getCandidateAssessmentsForRecruiter(recruiterId, candId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

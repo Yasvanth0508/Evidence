@@ -11,7 +11,7 @@ import com.example.backend.common.enums.BuildStatus;
 import com.example.backend.common.enums.ContainerStatus;
 import com.example.backend.common.exception.ForbiddenException;
 import com.example.backend.common.exception.ResourceNotFoundException;
-import com.example.backend.pipeline.docker.DockerCommandExecutor;
+import com.example.backend.pipeline.docker.ProcessCommandExecutor;
 import com.example.backend.pipeline.docker.DockerUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,7 +37,7 @@ public class CandidateExecutionService {
 
     private final AssessmentRepository assessmentRepository;
     private final CandidateWorkspaceService candidateWorkspaceService;
-    private final DockerCommandExecutor dockerExecutor;
+    private final ProcessCommandExecutor dockerExecutor;
     private final ProcessLogBuffer logBuffer;
 
     private static final Map<UUID, ActiveExecution> activeExecutions = new ConcurrentHashMap<>();
@@ -118,7 +118,7 @@ public class CandidateExecutionService {
             mvnCmd = "./mvnw";
         }
 
-        DockerCommandExecutor.ProcessResult packageResult = dockerExecutor.executeCommand(
+        ProcessCommandExecutor.ProcessResult packageResult = dockerExecutor.executeCommand(
                 workingDir,
                 120,
                 mvnCmd, "package", "-DskipTests", "-Dcheckstyle.skip=true"
@@ -174,7 +174,7 @@ public class CandidateExecutionService {
         boolean dockerAvailable = DockerUtils.isDockerDaemonRunning(dockerExecutor);
         if (dockerAvailable) {
             logBuffer.append(execKey, ">>> [2/3] Building Docker image " + tag + "...\n");
-            DockerCommandExecutor.ProcessResult buildResult = dockerExecutor.executeCommand(
+            ProcessCommandExecutor.ProcessResult buildResult = dockerExecutor.executeCommand(
                     workingDir, 120, "docker", "build", "-t", tag, "."
             );
             logBuffer.append(execKey, buildResult.combinedOutput() + "\n");
@@ -193,7 +193,7 @@ public class CandidateExecutionService {
             }
 
             logBuffer.append(execKey, ">>> [3/3] Starting candidate container on port " + exposedPort + "...\n");
-            DockerCommandExecutor.ProcessResult runResult = dockerExecutor.executeCommand(
+            ProcessCommandExecutor.ProcessResult runResult = dockerExecutor.executeCommand(
                     workingDir, 30,
                     "docker", "run", "-d",
                     "--name", containerName,
@@ -298,7 +298,7 @@ public class CandidateExecutionService {
         ActiveExecution exec = activeExecutions.get(assessmentId);
 
         if (exec != null && DockerUtils.isDockerDaemonRunning(dockerExecutor) && exec.containerName() != null && !exec.containerName().equals("native-process")) {
-            DockerCommandExecutor.ProcessResult res = dockerExecutor.executeCommand(
+            ProcessCommandExecutor.ProcessResult res = dockerExecutor.executeCommand(
                     null, 5, "docker", "logs", "--tail", "100", exec.containerName()
             );
             if (res.isSuccess() && !res.stdout().isEmpty()) {

@@ -173,6 +173,7 @@ export interface BugBreakdownItem {
 
 export interface CandidateReportData {
   id: string;
+  workspaceId?: string;
   candidate: {
     id: string;
     name: string;

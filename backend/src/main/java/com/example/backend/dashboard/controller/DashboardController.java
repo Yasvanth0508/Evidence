@@ -1,10 +1,10 @@
 package com.example.backend.dashboard.controller;
 
 import com.example.backend.common.dto.ApiResponse;
-import com.example.backend.common.util.UUIDUtils;
 import com.example.backend.dashboard.dto.CandidateDashboardResponse;
 import com.example.backend.dashboard.dto.RecruiterDashboardResponse;
-import com.example.backend.dashboard.service.DashboardService;
+import com.example.backend.dashboard.service.CandidateDashboardService;
+import com.example.backend.dashboard.service.RecruiterDashboardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +19,8 @@ import java.util.UUID;
 @CrossOrigin(originPatterns = "*")
 public class DashboardController {
 
-    private final DashboardService dashboardService;
+    private final RecruiterDashboardService recruiterDashboardService;
+    private final CandidateDashboardService candidateDashboardService;
 
     @GetMapping("/recruiter/dashboard")
     public ResponseEntity<ApiResponse<RecruiterDashboardResponse>> getRecruiterDashboard(
@@ -29,7 +30,7 @@ public class DashboardController {
         }
         UUID recruiterId = principal.getId();
         log.info("Fetching recruiter dashboard for ID: {}", recruiterId);
-        RecruiterDashboardResponse response = dashboardService.getRecruiterDashboard(recruiterId);
+        RecruiterDashboardResponse response = recruiterDashboardService.getRecruiterDashboard(recruiterId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -41,7 +42,7 @@ public class DashboardController {
         }
         UUID candidateId = principal.getId();
         log.info("Fetching candidate dashboard for ID: {}", candidateId);
-        CandidateDashboardResponse response = dashboardService.getCandidateDashboard(candidateId);
+        CandidateDashboardResponse response = candidateDashboardService.getCandidateDashboard(candidateId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

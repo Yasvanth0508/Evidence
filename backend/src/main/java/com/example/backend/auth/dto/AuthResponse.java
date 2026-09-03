@@ -20,4 +20,5 @@ public class AuthResponse {
     private Role role;
     private String token;
     private com.example.backend.common.enums.AuthProvider authProvider;
+    private String avatarUrl;
 }

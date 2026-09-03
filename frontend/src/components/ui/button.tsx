@@ -8,21 +8,21 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-[#F05323] text-white hover:bg-[#D94418] shadow-sm font-semibold",
+          "bg-primary text-white hover:bg-primary-hover shadow-sm font-semibold",
         primary:
-          "bg-[#F05323] text-white hover:bg-[#D94418] shadow-sm font-semibold",
+          "bg-primary text-white hover:bg-primary-hover shadow-sm font-semibold",
         destructive:
           "bg-red-500 text-white hover:bg-red-600 shadow-sm",
         outline:
-          "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900 shadow-sm",
+          "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white",
         secondary:
-          "bg-gray-100 text-gray-900 hover:bg-gray-200",
+          "bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700",
         ghost:
-          "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+          "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100",
         link:
-          "text-[#F05323] underline-offset-4 hover:underline",
+          "text-primary underline-offset-4 hover:underline",
         pill:
-          "rounded-full bg-[#F05323] text-white hover:bg-[#D94418] shadow-sm font-semibold",
+          "rounded-full bg-primary text-white hover:bg-primary-hover shadow-sm font-semibold",
       },
       size: {
         default: "h-10 px-4 py-2",

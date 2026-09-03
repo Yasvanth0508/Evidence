@@ -1,15 +1,37 @@
 package com.example.backend.pipeline.analysis;
 
 import com.example.backend.pipeline.analysis.dto.*;
+import org.springframework.stereotype.Component;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class SpringBootSourceAnalyzer {
+@Component
+public class SpringBootSourceAnalyzer implements SourceCodeAnalyzer {
 
-    private final SourceCodeStructureDto sourceCodeStructure = new SourceCodeStructureDto();
+    private static final Logger log = LoggerFactory.getLogger(SpringBootSourceAnalyzer.class);
 
-    public void analyzeJavaSource(String content) {
+    @Override
+    public SourceCodeStructureDto analyzeSourceCode(List<Path> javaFiles) {
+        SourceCodeStructureDto sourceCodeStructure = new SourceCodeStructureDto();
+
+        for (Path javaFile : javaFiles) {
+            try {
+                String content = Files.readString(javaFile);
+                analyzeJavaSource(content, sourceCodeStructure);
+            } catch (Exception ex) {
+                log.warn("Failed to parse Java file {}: {}", javaFile.getFileName(), ex.getMessage());
+            }
+        }
+        return sourceCodeStructure;
+    }
+
+    private void analyzeJavaSource(String content, SourceCodeStructureDto sourceCodeStructure) {
         if (content == null || content.trim().isEmpty()) {
             return;
         }
@@ -17,18 +39,14 @@ public class SpringBootSourceAnalyzer {
         String packageName = extractPackage(content);
 
         if (isRestController(content)) {
-            processController(content, packageName);
+            processController(content, packageName, sourceCodeStructure);
         } else if (isEntity(content)) {
-            processEntity(content, packageName);
+            processEntity(content, packageName, sourceCodeStructure);
         } else if (isRepository(content)) {
-            processRepository(content, packageName);
+            processRepository(content, packageName, sourceCodeStructure);
         } else if (isService(content)) {
-            processService(content, packageName);
+            processService(content, packageName, sourceCodeStructure);
         }
-    }
-
-    public SourceCodeStructureDto getSourceCodeStructure() {
-        return sourceCodeStructure;
     }
 
     private String extractPackage(String content) {
@@ -53,7 +71,7 @@ public class SpringBootSourceAnalyzer {
         return content.contains("@Service");
     }
 
-    private void processController(String content, String packageName) {
+    private void processController(String content, String packageName, SourceCodeStructureDto sourceCodeStructure) {
         String className = extractClassName(content);
         String basePath = "";
 
@@ -124,7 +142,7 @@ public class SpringBootSourceAnalyzer {
         sourceCodeStructure.getControllers().add(controllerInfo);
     }
 
-    private void processEntity(String content, String packageName) {
+    private void processEntity(String content, String packageName, SourceCodeStructureDto sourceCodeStructure) {
         String className = extractClassName(content);
         String tableName = className.toLowerCase();
 
@@ -173,7 +191,7 @@ public class SpringBootSourceAnalyzer {
         sourceCodeStructure.getEntities().add(entityInfo);
     }
 
-    private void processRepository(String content, String packageName) {
+    private void processRepository(String content, String packageName, SourceCodeStructureDto sourceCodeStructure) {
         String interfaceName = extractInterfaceName(content);
         String domainEntity = "Unknown";
         String idType = "Object";
@@ -196,7 +214,7 @@ public class SpringBootSourceAnalyzer {
         sourceCodeStructure.getRepositories().add(repoInfo);
     }
 
-    private void processService(String content, String packageName) {
+    private void processService(String content, String packageName, SourceCodeStructureDto sourceCodeStructure) {
         String className = extractClassName(content);
         ServiceInfo serviceInfo = new ServiceInfo(className, packageName);
 

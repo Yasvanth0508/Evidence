@@ -171,6 +171,28 @@ export const useDeleteFile = () => {
   });
 };
 
+export const useRenameFile = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      assessmentId,
+      oldPath,
+      newPath,
+    }: {
+      assessmentId: string;
+      oldPath: string;
+      newPath: string;
+    }) => {
+      return await assessmentService.renameFile(assessmentId, oldPath, newPath);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["file-tree", variables.assessmentId],
+      });
+    },
+  });
+};
+
 export const useRunApplication = () => {
   return useMutation({
     mutationFn: async (assessmentId: string) => {
@@ -206,10 +228,15 @@ export const useExecutionLogs = (assessmentId: string) => {
 export const useSubmitAssessment = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (assessmentId: string) => {
-      return await assessmentService.submitAssessment(assessmentId);
+    mutationFn: async (
+      args: string | { assessmentId: string; data?: { tabSwitchCount?: number; copyPasteEvents?: number; idleTimeMinutes?: number } }
+    ) => {
+      const assessmentId = typeof args === "string" ? args : args.assessmentId;
+      const data = typeof args === "string" ? undefined : args.data;
+      return await assessmentService.submitAssessment(assessmentId, data);
     },
-    onSuccess: (_, assessmentId) => {
+    onSuccess: (_, args) => {
+      const assessmentId = typeof args === "string" ? args : args.assessmentId;
       queryClient.invalidateQueries({ queryKey: ["assessment", assessmentId] });
       queryClient.invalidateQueries({ queryKey: ["candidate-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["recruiter-dashboard"] });

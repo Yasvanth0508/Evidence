@@ -41,7 +41,7 @@ export const DashboardFilterBar = ({
               setTechStack(e.target.value);
               onTechStackChange?.(e.target.value);
             }}
-            className="w-full h-10 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#F05323] shadow-xs"
+            className="w-full h-10 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
           >
             <option value="ALL">All Tech Stacks</option>
             <option value="JAVA">Java, Spring Boot</option>
@@ -58,7 +58,7 @@ export const DashboardFilterBar = ({
               setStatus(e.target.value);
               onStatusChange?.(e.target.value);
             }}
-            className="w-full h-10 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#F05323] shadow-xs"
+            className="w-full h-10 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
           >
             <option value="ALL">All Statuses</option>
             <option value="COMPLETED">Completed</option>
@@ -78,7 +78,7 @@ export const DashboardFilterBar = ({
               setSearchQuery(e.target.value);
               onSearch?.(e.target.value);
             }}
-            className="w-full h-10 pl-9 pr-3 rounded-xl border border-gray-200 bg-white text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#F05323] shadow-xs"
+            className="w-full h-10 pl-9 pr-3 rounded-xl border border-gray-200 bg-white text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
           />
         </div>
 

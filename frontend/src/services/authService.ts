@@ -8,6 +8,7 @@ export interface AuthResponseData {
   role: UserRole;
   token: string;
   authProvider?: "LOCAL" | "GOOGLE" | "GITHUB";
+  avatarUrl?: string;
 }
 
 export const authService = {
@@ -28,6 +29,22 @@ export const authService = {
     role: UserRole
   ): Promise<AuthResponseData> => {
     return await apiClient.post(`/auth/signup?role=${role}`, { name, email, password });
+  },
+
+  /**
+   * Unified registration endpoint accepting object payload.
+   */
+  register: async (payload: {
+    name: string;
+    email: string;
+    password: string;
+    role: UserRole;
+  }): Promise<AuthResponseData> => {
+    return await apiClient.post(`/auth/signup?role=${payload.role}`, {
+      name: payload.name,
+      email: payload.email,
+      password: payload.password,
+    });
   },
 
   /**

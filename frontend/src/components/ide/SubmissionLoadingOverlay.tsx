@@ -76,14 +76,14 @@ export const SubmissionLoadingOverlay = ({
         {/* Top Header & Spinner */}
         <div className="text-center space-y-3">
           <div className="relative inline-block">
-            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#F05323] to-amber-500 p-0.5 shadow-lg shadow-orange-500/20 flex items-center justify-center mx-auto">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-primary to-amber-500 p-0.5 shadow-lg shadow-[var(--theme-primary-shadow)] flex items-center justify-center mx-auto">
               <div
                 className={cn(
                   "w-full h-full rounded-[22px] flex items-center justify-center",
                   isDark ? "bg-slate-950" : "bg-white"
                 )}
               >
-                <Loader2 className="w-8 h-8 text-[#F05323] animate-spin" />
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
               </div>
             </div>
           </div>
@@ -117,8 +117,8 @@ export const SubmissionLoadingOverlay = ({
                   "flex items-start gap-3.5 p-3 rounded-2xl border transition-all duration-300",
                   isCurrent
                     ? isDark
-                      ? "bg-slate-800/90 border-orange-500/60 shadow-md shadow-orange-500/5"
-                      : "bg-orange-50/80 border-[#F05323]/50 shadow-sm"
+                      ? "bg-slate-800/90 border-primary/60 shadow-md shadow-[var(--theme-primary-shadow)]"
+                      : "bg-primary-light/80 border-primary/50 shadow-sm"
                     : isDone
                     ? isDark
                       ? "bg-slate-950/60 border-slate-800/80 opacity-70"
@@ -132,7 +132,7 @@ export const SubmissionLoadingOverlay = ({
                   className={cn(
                     "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 font-bold transition-colors",
                     isCurrent
-                      ? "bg-[#F05323] text-white shadow-xs"
+                      ? "bg-primary text-white shadow-xs"
                       : isDone
                       ? "bg-emerald-500 text-white"
                       : isDark
@@ -154,8 +154,8 @@ export const SubmissionLoadingOverlay = ({
                         "text-xs font-bold truncate",
                         isCurrent
                           ? isDark
-                            ? "text-orange-400"
-                            : "text-[#F05323]"
+                            ? "text-primary"
+                            : "text-primary"
                           : isDone
                           ? "text-emerald-500"
                           : isDark
@@ -166,7 +166,7 @@ export const SubmissionLoadingOverlay = ({
                       {step.title}
                     </h4>
                     {isCurrent && (
-                      <span className="text-[10px] font-bold text-[#F05323] animate-pulse">
+                      <span className="text-[10px] font-bold text-primary animate-pulse">
                         In Progress...
                       </span>
                     )}

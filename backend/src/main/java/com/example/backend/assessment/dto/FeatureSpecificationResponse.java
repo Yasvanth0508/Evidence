@@ -24,6 +24,7 @@ public class FeatureSpecificationResponse {
     private Object requestSpecification;
     private Object responseSpecification;
     private Object constraints;
+    private String testCaseSeed;
     private Instant createdAt;
     private Instant updatedAt;
 }

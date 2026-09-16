@@ -157,6 +157,7 @@ public class AssessmentQueryService {
                 .requestSpecification(parseJsonToMap(feature.getRequestSpecification(), "request"))
                 .responseSpecification(parseJsonToMap(feature.getResponseSpecification(), "response"))
                 .constraints(parseJsonToMap(feature.getConstraints(), "constraints"))
+                .testCaseSeed(feature.getTestCaseSeed())
                 .createdAt(feature.getCreatedAt())
                 .updatedAt(feature.getUpdatedAt())
                 .build();

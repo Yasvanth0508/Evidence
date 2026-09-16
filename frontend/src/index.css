@@ -140,3 +140,14 @@ body {
   background: #475569;
 }
 
+/* Ensure Monaco Editor text and cursor are fully selectable and visible */
+.monaco-editor,
+.monaco-editor * {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+.monaco-editor .view-lines {
+  white-space: pre !important;
+}
+

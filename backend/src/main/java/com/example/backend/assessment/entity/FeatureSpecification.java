@@ -43,6 +43,9 @@ public class FeatureSpecification implements Persistable<UUID> {
     @Column(name = "constraints", columnDefinition = "TEXT")
     private String constraints;
 
+    @Column(name = "test_case_seed", columnDefinition = "TEXT")
+    private String testCaseSeed;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -57,12 +60,18 @@ public class FeatureSpecification implements Persistable<UUID> {
 
     public FeatureSpecification(Assessment assessment, String featureName, String description, String requirements,
                                 String requestSpecification, String responseSpecification, String constraints) {
-        this(assessment, featureName, description, requirements, requestSpecification, responseSpecification, constraints, null, null);
+        this(assessment, featureName, description, requirements, requestSpecification, responseSpecification, constraints, null, null, null);
     }
 
     public FeatureSpecification(Assessment assessment, String featureName, String description, String requirements,
                                 String requestSpecification, String responseSpecification, String constraints,
                                 String endpoint, String httpMethod) {
+        this(assessment, featureName, description, requirements, requestSpecification, responseSpecification, constraints, endpoint, httpMethod, null);
+    }
+
+    public FeatureSpecification(Assessment assessment, String featureName, String description, String requirements,
+                                String requestSpecification, String responseSpecification, String constraints,
+                                String endpoint, String httpMethod, String testCaseSeed) {
         this.assessment = assessment;
         this.assessmentId = assessment != null ? assessment.getId() : null;
         this.featureName = featureName;
@@ -73,6 +82,7 @@ public class FeatureSpecification implements Persistable<UUID> {
         this.constraints = constraints;
         this.endpoint = endpoint;
         this.httpMethod = httpMethod;
+        this.testCaseSeed = testCaseSeed;
         Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
@@ -193,6 +203,14 @@ public class FeatureSpecification implements Persistable<UUID> {
 
     public void setHttpMethod(String httpMethod) {
         this.httpMethod = httpMethod;
+    }
+
+    public String getTestCaseSeed() {
+        return testCaseSeed;
+    }
+
+    public void setTestCaseSeed(String testCaseSeed) {
+        this.testCaseSeed = testCaseSeed;
     }
 
     public Instant getCreatedAt() {

@@ -4,22 +4,15 @@ import com.example.backend.assessment.entity.Assessment;
 import com.example.backend.assessment.entity.FeatureSpecification;
 import com.example.backend.assessment.repository.AssessmentRepository;
 import com.example.backend.assessment.repository.FeatureSpecificationRepository;
-import com.example.backend.pipeline.analysis.dto.*;
-import com.example.backend.pipeline.feature.client.MistralAiClient;
-import com.example.backend.pipeline.feature.config.MistralAiConfig;
+import com.example.backend.common.enums.Difficulty;
+import com.example.backend.pipeline.analysis.dto.AstAnalysisResult;
 import com.example.backend.pipeline.feature.dto.FeatureGenerationResult;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class FeatureSpecificationService {
@@ -42,64 +35,92 @@ public class FeatureSpecificationService {
     }
 
     /**
-     * Executes Phase 4: Generates AI Feature Specification using Mistral AI (or dynamic AST domain synthesizer).
+     * Executes Phase 4: Generates AI Feature Specification using Mistral AI
+     * (with difficulty-calibrated prompt) or falls back to the dynamic AST synthesizer.
      */
     @Transactional
-    public FeatureGenerationResult generateFeatureSpecification(UUID assessmentId, AstAnalysisResult astResult) {
-        log.info("Phase 4: Starting AI Feature Specification Generation for Assessment {}", assessmentId);
+    public FeatureGenerationResult generateFeatureSpecification(UUID assessmentId,
+                                                                AstAnalysisResult astResult,
+                                                                Difficulty difficulty) {
+        Difficulty d = difficulty != null ? difficulty : Difficulty.INTERMEDIATE;
+        log.info("Phase 4: Starting Feature Specification Generation for Assessment {} (difficulty={})",
+                assessmentId, d);
 
-        FeatureGenerationResult result = mistralFeatureGenerator.generateFeature(assessmentId, astResult);
-        
+        FeatureGenerationResult result = mistralFeatureGenerator.generateFeature(assessmentId, astResult, d);
+
         if (result == null) {
-            log.info("Mistral AI generation returned null. Falling back to dynamic AST domain synthesizer.");
-            result = dynamicFeatureGenerator.generateFeature(assessmentId, astResult);
+            log.info("assessmentId={} Mistral AI generation returned null — falling back to DynamicFeatureGenerator (difficulty={})",
+                    assessmentId, d);
+            result = dynamicFeatureGenerator.generateFeature(assessmentId, astResult, d);
         }
 
-        // Persist to PostgreSQL Database
-        persistFeatureSpecification(
-                result.getAssessmentId(),
-                result.getFeatureName(),
-                result.getDescription(),
-                result.getRequirements(),
-                result.getRequestSpecification(),
-                result.getResponseSpecification(),
-                result.getConstraints(),
-                result.getEndpoint(),
-                result.getHttpMethod()
-        );
+        // Persist to PostgreSQL
+        persistFeatureSpecification(result);
 
-        log.info("Phase 4: Feature Specification Generation COMPLETED for Assessment {} (Feature: {})", assessmentId, result.getFeatureName());
+        log.info("Phase 4: Feature Specification Generation COMPLETED for Assessment {} " +
+                 "(Feature: '{}', Endpoint: [{} {}], TestCaseSeed: {})",
+                assessmentId, result.getFeatureName(), result.getHttpMethod(), result.getEndpoint(),
+                result.getTestCaseSeed() != null ? "present" : "absent");
 
         return result;
     }
 
-    private void persistFeatureSpecification(UUID assessmentId, String name, String desc, String req,
-                                             String reqSpec, String respSpec, String constr,
-                                             String endpoint, String httpMethod) {
-        if (featureSpecificationRepository == null || assessmentId == null) {
+    /**
+     * Backward-compatible overload — reads difficulty from the Assessment entity.
+     */
+    @Transactional
+    public FeatureGenerationResult generateFeatureSpecification(UUID assessmentId, AstAnalysisResult astResult) {
+        Difficulty difficulty = Difficulty.INTERMEDIATE;
+        if (assessmentRepository != null) {
+            Assessment assessment = assessmentRepository.findById(assessmentId).orElse(null);
+            if (assessment != null && assessment.getDifficulty() != null) {
+                difficulty = assessment.getDifficulty();
+            }
+        }
+        return generateFeatureSpecification(assessmentId, astResult, difficulty);
+    }
+
+    // -----------------------------------------------------------------------
+    // Persistence
+    // -----------------------------------------------------------------------
+
+    private void persistFeatureSpecification(FeatureGenerationResult result) {
+        if (featureSpecificationRepository == null || result == null || result.getAssessmentId() == null) {
             return;
         }
-
+        UUID assessmentId = result.getAssessmentId();
         try {
             FeatureSpecification spec = featureSpecificationRepository.findById(assessmentId).orElse(null);
             if (spec == null && assessmentRepository != null) {
                 Assessment assessment = assessmentRepository.findById(assessmentId).orElse(null);
                 if (assessment != null) {
-                    spec = new FeatureSpecification(assessment, name, desc, req, reqSpec, respSpec, constr, endpoint, httpMethod);
+                    spec = new FeatureSpecification(assessment,
+                            result.getFeatureName(),
+                            result.getDescription(),
+                            result.getRequirements(),
+                            result.getRequestSpecification(),
+                            result.getResponseSpecification(),
+                            result.getConstraints(),
+                            result.getEndpoint(),
+                            result.getHttpMethod(),
+                            result.getTestCaseSeed());
                 }
             }
 
             if (spec != null) {
-                spec.setFeatureName(name);
-                spec.setDescription(desc);
-                spec.setRequirements(req);
-                spec.setRequestSpecification(reqSpec);
-                spec.setResponseSpecification(respSpec);
-                spec.setConstraints(constr);
-                spec.setEndpoint(endpoint != null && !endpoint.isBlank() ? endpoint : "/api/v1/resource");
-                spec.setHttpMethod(httpMethod != null && !httpMethod.isBlank() ? httpMethod : "POST");
+                spec.setFeatureName(result.getFeatureName());
+                spec.setDescription(result.getDescription());
+                spec.setRequirements(result.getRequirements());
+                spec.setRequestSpecification(result.getRequestSpecification());
+                spec.setResponseSpecification(result.getResponseSpecification());
+                spec.setConstraints(result.getConstraints());
+                spec.setEndpoint(result.getEndpoint() != null && !result.getEndpoint().isBlank()
+                        ? result.getEndpoint() : "/api/v1/resource");
+                spec.setHttpMethod(result.getHttpMethod() != null && !result.getHttpMethod().isBlank()
+                        ? result.getHttpMethod() : "POST");
+                spec.setTestCaseSeed(result.getTestCaseSeed());
                 featureSpecificationRepository.save(spec);
-                log.info("Phase 4: Saved FEATURE_SPECIFICATION record for assessment {} (Method: {}, Endpoint: {})",
+                log.info("Phase 4: Saved FEATURE_SPECIFICATION for assessment {} (Method: {}, Endpoint: {})",
                         assessmentId, spec.getHttpMethod(), spec.getEndpoint());
             }
         } catch (Exception ex) {

@@ -273,7 +273,15 @@ public class AssessmentProcessingOrchestrator {
             sb.append("(No response specification provided)\n\n");
         }
 
-        sb.append("## Constraints\n").append(f.getConstraints()).append("\n");
+        sb.append("## Constraints\n").append(f.getConstraints()).append("\n\n");
+
+        String testCaseSeed = f.getTestCaseSeed();
+        sb.append("## Seeded Test Cases\n");
+        if (testCaseSeed != null && !testCaseSeed.trim().isEmpty()) {
+            sb.append("```json\n").append(testCaseSeed.trim()).append("\n```\n");
+        } else {
+            sb.append("(No seeded test cases available)\n");
+        }
         return sb.toString();
     }
 

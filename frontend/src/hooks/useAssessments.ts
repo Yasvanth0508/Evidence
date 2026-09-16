@@ -120,9 +120,10 @@ export const useSaveFile = () => {
       return await assessmentService.saveFile(assessmentId, path, content);
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["file-content", variables.assessmentId, variables.path],
-      });
+      queryClient.setQueryData(
+        ["file-content", variables.assessmentId, variables.path],
+        { content: variables.content, path: variables.path }
+      );
     },
   });
 };

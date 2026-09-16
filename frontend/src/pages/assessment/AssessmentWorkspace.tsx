@@ -54,7 +54,6 @@ export const AssessmentWorkspace = () => {
   const stopMutation = useStopApplication();
   const submitMutation = useSubmitAssessment();
 
-  const [fileContent, setFileContent] = useState<string>("");
   const [isDirty, setIsDirty] = useState(false);
   const [isSpecDrawerOpen, setIsSpecDrawerOpen] = useState(false);
   const [isRunningBuild, setIsRunningBuild] = useState(false);
@@ -72,8 +71,9 @@ export const AssessmentWorkspace = () => {
   const [isDraggingSidebar, setIsDraggingSidebar] = useState<boolean>(false);
   const [isDraggingTerminal, setIsDraggingTerminal] = useState<boolean>(false);
 
-  // Monaco Editor Ref
+  // Monaco Editor Ref & Buffer Ref
   const editorRef = useRef<any>(null);
+  const fileContentRef = useRef<string>("");
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Zustand Integrity & Tab Switching Proctoring Store
@@ -145,19 +145,26 @@ export const AssessmentWorkspace = () => {
     "[INFO] Tip: Click 'Run Build' in top bar to compile and test against container.",
   ]);
 
-  // Sync loaded file content into editor state
+  // Sync loaded file content into editor ref and editor instance if not dirty
   useEffect(() => {
     if (fileData?.content !== undefined) {
-      setFileContent(fileData.content);
+      fileContentRef.current = fileData.content;
+      if (editorRef.current && !isDirty) {
+        if (editorRef.current.getValue() !== fileData.content) {
+          editorRef.current.setValue(fileData.content);
+        }
+      }
       setIsDirty(false);
     }
   }, [fileData]);
 
-  // Debounced Autosave (2500ms)
+  // Debounced Autosave (2500ms) - preserves native typing performance without re-renders
   const handleEditorChange = (value: string | undefined) => {
     const nextContent = value || "";
-    setFileContent(nextContent);
-    setIsDirty(true);
+    fileContentRef.current = nextContent;
+    if (!isDirty) {
+      setIsDirty(true);
+    }
 
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
@@ -168,7 +175,7 @@ export const AssessmentWorkspace = () => {
         saveFileMutation.mutate({
           assessmentId: id,
           path: activeFilePath,
-          content: nextContent,
+          content: fileContentRef.current,
         });
         setIsDirty(false);
       }
@@ -178,12 +185,27 @@ export const AssessmentWorkspace = () => {
   const handleSave = () => {
     if (!activeFilePath || !id) return;
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    const contentToSave = editorRef.current?.getValue() ?? fileContentRef.current;
     saveFileMutation.mutate({
       assessmentId: id,
       path: activeFilePath,
-      content: fileContent,
+      content: contentToSave,
     });
     setIsDirty(false);
+  };
+
+  const handleSelectFile = (newPath: string) => {
+    if (newPath === activeFilePath) return;
+    if (isDirty && activeFilePath && id) {
+      const contentToSave = editorRef.current?.getValue() ?? fileContentRef.current;
+      saveFileMutation.mutate({
+        assessmentId: id,
+        path: activeFilePath,
+        content: contentToSave,
+      });
+      setIsDirty(false);
+    }
+    setActiveFilePath(newPath);
   };
 
   const handleCreateFile = async (path: string, type: "FILE" | "DIRECTORY") => {
@@ -320,10 +342,11 @@ export const AssessmentWorkspace = () => {
 
     try {
       if (activeFilePath && isDirty) {
+        const contentToSave = editorRef.current?.getValue() ?? fileContentRef.current;
         await saveFileMutation.mutateAsync({
           assessmentId: id,
           path: activeFilePath,
-          content: fileContent,
+          content: contentToSave,
         });
         setIsDirty(false);
       }
@@ -458,7 +481,7 @@ export const AssessmentWorkspace = () => {
   return (
     <div
       className={cn(
-        "h-screen flex flex-col overflow-hidden select-none font-sans transition-colors",
+        "h-screen flex flex-col overflow-hidden font-sans transition-colors",
         isDark ? "bg-slate-900 text-gray-100" : "bg-gray-100 text-gray-900"
       )}
     >
@@ -488,7 +511,7 @@ export const AssessmentWorkspace = () => {
               files={fileTree}
               activeFilePath={activeFilePath}
               theme={theme}
-              onSelectFile={(path) => setActiveFilePath(path)}
+              onSelectFile={handleSelectFile}
               onCreateFile={handleCreateFile}
               onRenameFile={handleRenameFile}
               onDeleteFile={handleDeleteFile}
@@ -616,9 +639,10 @@ export const AssessmentWorkspace = () => {
           {/* Monaco Editor Pane */}
           <div
             className={cn(
-              "flex-1 relative overflow-hidden transition-colors",
+              "flex-1 relative overflow-hidden transition-colors select-text",
               isDark ? "bg-[#1E1E1E]" : "bg-white"
             )}
+            style={{ userSelect: "text" }}
           >
             {isFileLoading ? (
               <div className="h-full flex items-center justify-center space-x-2 text-xs text-gray-400">
@@ -637,13 +661,17 @@ export const AssessmentWorkspace = () => {
               </div>
             ) : (
               <Editor
+                key={activeFilePath}
                 height="100%"
                 path={activeFilePath ? `file:///${activeFilePath}` : undefined}
                 language={getLanguage(activeFilePath)}
-                value={fileContent}
+                defaultValue={fileData?.content ?? ""}
                 onChange={handleEditorChange}
                 onMount={(editor) => {
                   editorRef.current = editor;
+                  if (fileData?.content !== undefined) {
+                    fileContentRef.current = fileData.content;
+                  }
                 }}
                 theme={theme === "dark" ? "vs-dark" : "vs-light"}
                 options={{
@@ -657,13 +685,14 @@ export const AssessmentWorkspace = () => {
                   roundedSelection: true,
                   automaticLayout: true,
                   tabSize: 4,
-                  wordWrap: "on",
+                  wordWrap: "off",
                   cursorBlinking: "smooth",
                   cursorSmoothCaretAnimation: "on",
                   cursorStyle: "line",
                   cursorWidth: 2,
                   smoothScrolling: true,
                   renderLineHighlight: "all",
+                  fixedOverflowWidgets: true,
                 }}
               />
             )}

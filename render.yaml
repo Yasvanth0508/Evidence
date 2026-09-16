@@ -11,19 +11,19 @@ services:
       - key: PORT
         value: 8080
       - key: DB_HOST
-        value: db.adtdrtkyuwinchobfuuu.supabase.co
+        value: aws-0-ap-northeast-2.pooler.supabase.com
       - key: DB_PORT
         value: 5432
       - key: DB_NAME
         value: postgres
       - key: DB_USER
-        value: postgres
+        value: postgres.adtdrtkyuwinchobfuuu
       - key: DB_PASSWORD
         value: Yasvanth123.
       - key: DB_SSLMODE
         value: require
       - key: SPRING_DATASOURCE_URL
-        value: jdbc:postgresql://db.adtdrtkyuwinchobfuuu.supabase.co:5432/postgres?sslmode=require
+        value: jdbc:postgresql://aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require
       - key: MISTRAL_API_KEY
         value: WSyiVd0Q8bGn7XQirp7CQEU4PB1U8T79
       - key: MISTRAL_BASE_URL

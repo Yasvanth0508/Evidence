@@ -110,11 +110,26 @@ public class CandidateExecutionService {
             }
         }
 
+        File mvnwFile = workspaceDir.resolve("mvnw").toFile();
+        if (mvnwFile.exists()) {
+            try {
+                mvnwFile.setExecutable(true, false);
+            } catch (Exception ignored) {}
+        }
+
         String mvnCmd = DockerUtils.isWindows() ? "mvn.cmd" : "mvn";
+        if (!DockerUtils.isWindows()) {
+            if (new File("/usr/bin/mvn").exists()) {
+                mvnCmd = "/usr/bin/mvn";
+            } else if (new File("/usr/local/bin/mvn").exists()) {
+                mvnCmd = "/usr/local/bin/mvn";
+            }
+        }
+
         boolean hasWrapperProps = Files.exists(mvnDir.resolve("wrapper").resolve("maven-wrapper.properties"));
         if (hasWrapperProps && Files.exists(workspaceDir.resolve("mvnw.cmd"))) {
-            mvnCmd = DockerUtils.isWindows() ? "mvnw.cmd" : "./mvnw";
-        } else if (hasWrapperProps && Files.exists(workspaceDir.resolve("mvnw"))) {
+            mvnCmd = DockerUtils.isWindows() ? "mvnw.cmd" : (mvnwFile.exists() ? "./mvnw" : mvnCmd);
+        } else if (hasWrapperProps && mvnwFile.exists()) {
             mvnCmd = "./mvnw";
         }
 

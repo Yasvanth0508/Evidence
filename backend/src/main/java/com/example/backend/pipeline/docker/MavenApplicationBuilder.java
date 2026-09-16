@@ -33,10 +33,25 @@ public class MavenApplicationBuilder implements ApplicationBuilder {
         StringBuilder buildLogs = new StringBuilder();
 
         if (!jarExists) {
+            File mvnwFile = new File(workingDir, isWindows() ? "mvnw.cmd" : "mvnw");
+            if (mvnwFile.exists() && !isWindows()) {
+                try {
+                    mvnwFile.setExecutable(true, false);
+                } catch (Exception ignored) {}
+            }
+
             String mvnCmd = isWindows() ? "mvn.cmd" : "mvn";
+            if (!isWindows()) {
+                if (new File("/usr/bin/mvn").exists()) {
+                    mvnCmd = "/usr/bin/mvn";
+                } else if (new File("/usr/local/bin/mvn").exists()) {
+                    mvnCmd = "/usr/local/bin/mvn";
+                }
+            }
+
             File wrapperJar = new File(workingDir, ".mvn" + File.separator + "wrapper" + File.separator + "maven-wrapper.jar");
-            if (new File(workingDir, isWindows() ? "mvnw.cmd" : "mvnw").exists() && wrapperJar.exists() && wrapperJar.length() > 5000) {
-                mvnCmd = new File(workingDir, isWindows() ? "mvnw.cmd" : "mvnw").getAbsolutePath();
+            if (mvnwFile.exists() && wrapperJar.exists() && wrapperJar.length() > 5000) {
+                mvnCmd = mvnwFile.getAbsolutePath();
             }
 
             ProcessCommandExecutor.ProcessResult packageResult = dockerExecutor.executeCommand(

@@ -8,9 +8,15 @@ COPY pom.xml .
 COPY src src
 RUN mvn clean package -DskipTests
 
-# Use JRE image for running the app
-FROM eclipse-temurin:21-jre-alpine
+# --- Runtime Stage (Full JDK 21 + Maven for Candidate Code Execution) ---
+FROM eclipse-temurin:21-jdk-alpine
 WORKDIR /app
+
+# Install Maven, Git, Bash, and curl for compiling candidate repositories
+RUN apk add --no-cache maven git bash curl
+
+# Pre-create Maven directories
+RUN mkdir -p /root/.m2 /app/storage /app/.m2/repository
 
 # Copy the built jar from the build stage
 COPY --from=build /app/target/*.jar app.jar
@@ -18,5 +24,5 @@ COPY --from=build /app/target/*.jar app.jar
 # Expose the application port
 EXPOSE 8080
 
-# Run the application with memory optimizations for cloud free-tier (512MB RAM)
-ENTRYPOINT ["java", "-XX:+UseSerialGC", "-Xmx400m", "-jar", "app.jar"]
+# Run the application with memory tuning to reserve headroom for candidate builds (Render 512MB limit)
+ENTRYPOINT ["java", "-XX:+UseSerialGC", "-Xms128m", "-Xmx256m", "-jar", "app.jar"]

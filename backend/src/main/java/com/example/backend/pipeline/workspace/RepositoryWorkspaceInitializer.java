@@ -10,6 +10,7 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Service
 public class RepositoryWorkspaceInitializer {
@@ -41,13 +42,75 @@ public class RepositoryWorkspaceInitializer {
             Files.createDirectories(candidateWorkspacePath);
             if (Files.exists(originalRepoPath)) {
                 copyDirectoryTree(originalRepoPath, candidateWorkspacePath);
-                createStarterFilesIfMissing(candidateWorkspacePath);
+                if (!hasAnyPomXml(candidateWorkspacePath)) {
+                    createStarterFilesIfMissing(candidateWorkspacePath);
+                }
                 log.info("Copied original repository from {} to candidate workspace {}", originalRepoPath, candidateWorkspacePath);
             } else {
                 createStarterFilesIfMissing(candidateWorkspacePath);
                 log.info("Created starter template files in candidate workspace {}", candidateWorkspacePath);
             }
+        } else {
+            cleanupAccidentalRootStarterFiles(candidateWorkspacePath);
         }
+    }
+
+    public void cleanupAccidentalRootStarterFiles(Path candidateWorkspacePath) {
+        try {
+            boolean hasSubdirectoryPom = false;
+            try (Stream<Path> stream = Files.walk(candidateWorkspacePath, 2)) {
+                hasSubdirectoryPom = stream.anyMatch(p -> p.getFileName().toString().equals("pom.xml") && !p.getParent().equals(candidateWorkspacePath));
+            }
+
+            if (hasSubdirectoryPom) {
+                Path rootPom = candidateWorkspacePath.resolve("pom.xml");
+                if (Files.exists(rootPom)) {
+                    String content = Files.readString(rootPom);
+                    if (content.contains("<artifactId>assessment-app</artifactId>")) {
+                        Files.deleteIfExists(rootPom);
+                        log.info("Cleaned up accidental root starter pom.xml at {}", rootPom);
+                    }
+                }
+
+                Path rootSrc = candidateWorkspacePath.resolve("src");
+                Path dummyPkg = rootSrc.resolve("main").resolve("java").resolve("com").resolve("example");
+                if (Files.exists(dummyPkg)) {
+                    try (Stream<Path> stream = Files.list(dummyPkg)) {
+                        if (stream.findAny().isEmpty()) {
+                            deleteRecursively(rootSrc);
+                            log.info("Cleaned up accidental empty root src directory at {}", rootSrc);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not clean up root starter files: {}", e.getMessage());
+        }
+    }
+
+    private boolean hasAnyPomXml(Path dir) {
+        try (Stream<Path> stream = Files.walk(dir, 3)) {
+            return stream.anyMatch(p -> p.getFileName().toString().equals("pom.xml"));
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private void deleteRecursively(Path path) throws IOException {
+        if (!Files.exists(path)) return;
+        Files.walkFileTree(path, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                Files.delete(dir);
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 
     private boolean shouldIgnoreForCopy(String name) {
@@ -88,6 +151,49 @@ public class RepositoryWorkspaceInitializer {
         Path srcMainJava = candidateWorkspacePath.resolve("src").resolve("main").resolve("java").resolve("com").resolve("example");
         Files.createDirectories(srcMainJava);
 
+        Path appJava = srcMainJava.resolve("Application.java");
+        if (!Files.exists(appJava)) {
+            String appContent = """
+                    package com.example;
+
+                    import java.io.IOException;
+                    import java.io.OutputStream;
+                    import java.net.InetSocketAddress;
+                    import com.sun.net.httpserver.HttpServer;
+                    import com.sun.net.httpserver.HttpHandler;
+                    import com.sun.net.httpserver.HttpExchange;
+
+                    public class Application {
+                        public static void main(String[] args) throws IOException {
+                            int port = 8080;
+                            for (String arg : args) {
+                                if (arg.startsWith("--server.port=")) {
+                                    try {
+                                        port = Integer.parseInt(arg.substring("--server.port=".length()));
+                                    } catch (NumberFormatException ignored) {}
+                                }
+                            }
+                            HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+                            server.createContext("/", new HttpHandler() {
+                                @Override
+                                public void handle(HttpExchange exchange) throws IOException {
+                                    String response = "{\\"status\\":\\"UP\\",\\"message\\":\\"Candidate application is running!\\"}";
+                                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                                    exchange.sendResponseHeaders(200, response.getBytes().length);
+                                    try (OutputStream os = exchange.getResponseBody()) {
+                                        os.write(response.getBytes());
+                                    }
+                                }
+                            });
+                            server.setExecutor(null);
+                            server.start();
+                            System.out.println("Application started on port " + port);
+                        }
+                    }
+                    """;
+            Files.writeString(appJava, appContent);
+        }
+
         Path pomXml = candidateWorkspacePath.resolve("pom.xml");
         if (!Files.exists(pomXml)) {
             String defaultPom = """
@@ -100,8 +206,26 @@ public class RepositoryWorkspaceInitializer {
                         <artifactId>assessment-app</artifactId>
                         <version>1.0.0</version>
                         <properties>
-                            <java.version>21</java.version>
+                            <maven.compiler.source>21</maven.compiler.source>
+                            <maven.compiler.target>21</maven.compiler.target>
+                            <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
                         </properties>
+                        <build>
+                            <plugins>
+                                <plugin>
+                                    <groupId>org.apache.maven.plugins</groupId>
+                                    <artifactId>maven-jar-plugin</artifactId>
+                                    <version>3.4.2</version>
+                                    <configuration>
+                                        <archive>
+                                            <manifest>
+                                                <mainClass>com.example.Application</mainClass>
+                                            </manifest>
+                                        </archive>
+                                    </configuration>
+                                </plugin>
+                            </plugins>
+                        </build>
                     </project>
                     """;
             Files.writeString(pomXml, defaultPom);

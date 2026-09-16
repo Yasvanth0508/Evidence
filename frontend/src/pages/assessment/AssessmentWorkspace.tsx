@@ -114,25 +114,67 @@ export const AssessmentWorkspace = () => {
     return null;
   }, []);
 
-  // Set active file automatically when file tree is loaded
+  // Set active file automatically when file tree is loaded with smart preference and session persistence
   useEffect(() => {
     if (fileTree && fileTree.length > 0) {
       const fileExists = (nodes: any[], target: string): boolean => {
         for (const node of nodes) {
-          if (node.type === "FILE" && (node.path === target || `/${node.path}` === target)) return true;
+          if (node.type === "FILE" && (node.path === target || `/${node.path}` === target || node.path === `/${target}`)) return true;
           if (node.children && fileExists(node.children, target)) return true;
         }
         return false;
       };
 
+      // 1. Try restoring the candidate's active file from sessionStorage
+      const savedPath = id ? sessionStorage.getItem(`active-file-${id}`) : null;
+      if (savedPath && fileExists(fileTree, savedPath)) {
+        if (activeFilePath !== savedPath) {
+          setActiveFilePath(savedPath);
+        }
+        return;
+      }
+
+      // 2. If no active file or active file was deleted, pick the preferred backend Java file
       if (!activeFilePath || !fileExists(fileTree, activeFilePath)) {
-        const first = findFirstFile(fileTree);
-        if (first) {
-          setActiveFilePath(first);
+        const backendRoot = assessment?.backendRootDirectory?.trim();
+        const preferred = [
+          backendRoot ? `${backendRoot}/src/main/java` : null,
+          backendRoot ? `${backendRoot}/src` : null,
+          "backend/src/main/java",
+          "backend/src",
+          "src/main/java",
+          "src",
+          "Application.java",
+          "App.java",
+          "pom.xml",
+        ].filter(Boolean) as string[];
+
+        let chosen: string | null = null;
+        for (const pref of preferred) {
+          const findPreferred = (nodes: any[]): string | null => {
+            for (const node of nodes) {
+              if (node.path === pref || node.path.startsWith(pref) || node.path.includes(`/${pref}`)) {
+                return node.type === "FILE" ? node.path : findFirstFile(node.children || []);
+              }
+              if (node.children) {
+                const sub = findPreferred(node.children);
+                if (sub) return sub;
+              }
+            }
+            return null;
+          };
+          chosen = findPreferred(fileTree);
+          if (chosen) break;
+        }
+
+        const targetFile = chosen || findFirstFile(fileTree);
+        if (targetFile) {
+          setActiveFilePath(targetFile);
+          if (id) sessionStorage.setItem(`active-file-${id}`, targetFile);
         }
       }
     }
-  }, [fileTree, activeFilePath, findFirstFile]);
+  }, [fileTree, activeFilePath, findFirstFile, id, assessment?.backendRootDirectory]);
 
   // Toggle proctoring (disabled for testing)
   const PROCTORING_ENABLED = false;
@@ -206,6 +248,7 @@ export const AssessmentWorkspace = () => {
       setIsDirty(false);
     }
     setActiveFilePath(newPath);
+    if (id) sessionStorage.setItem(`active-file-${id}`, newPath);
   };
 
   const handleCreateFile = async (path: string, type: "FILE" | "DIRECTORY") => {
@@ -216,6 +259,10 @@ export const AssessmentWorkspace = () => {
       type,
       content: type === "FILE" ? "// New file\n" : undefined,
     });
+    if (type === "FILE") {
+      setActiveFilePath(path);
+      sessionStorage.setItem(`active-file-${id}`, path);
+    }
     setLogs((prev) => [
       ...prev,
       `[FILE_SYSTEM] Created ${type === "DIRECTORY" ? "directory" : "file"}: ${path}`,
@@ -234,7 +281,9 @@ export const AssessmentWorkspace = () => {
     ]);
     if (activeFilePath === path || activeFilePath.startsWith(`${path}/`)) {
       const remainingFirst = findFirstFile(fileTree.filter((n) => n.path !== path));
-      setActiveFilePath(remainingFirst || "");
+      const nextPath = remainingFirst || "";
+      setActiveFilePath(nextPath);
+      if (id) sessionStorage.setItem(`active-file-${id}`, nextPath);
     }
   };
 
@@ -251,8 +300,11 @@ export const AssessmentWorkspace = () => {
     ]);
     if (activeFilePath === oldPath) {
       setActiveFilePath(newPath);
+      sessionStorage.setItem(`active-file-${id}`, newPath);
     } else if (activeFilePath.startsWith(`${oldPath}/`)) {
-      setActiveFilePath(activeFilePath.replace(oldPath, newPath));
+      const updated = activeFilePath.replace(oldPath, newPath);
+      setActiveFilePath(updated);
+      sessionStorage.setItem(`active-file-${id}`, updated);
     }
   };
 

@@ -37,6 +37,7 @@ public class CandidateExecutionService {
 
     private final AssessmentRepository assessmentRepository;
     private final CandidateWorkspaceService candidateWorkspaceService;
+    private final com.example.backend.pipeline.workspace.WorkspacePathService pathService;
     private final ProcessCommandExecutor dockerExecutor;
     private final ProcessLogBuffer logBuffer;
 
@@ -79,7 +80,8 @@ public class CandidateExecutionService {
         stopExistingExecution(assessmentId);
 
         Path workspaceDir = candidateWorkspaceService.resolveCandidateWorkspace(candidateId, assessmentId);
-        File workingDir = workspaceDir.toFile();
+        Path backendDir = pathService.resolveBackendDirectory(workspaceDir, assessment.getBackendRootDirectory());
+        File workingDir = backendDir.toFile();
         UUID executionId = UUID.randomUUID();
         String execKey = assessmentId.toString();
         logBuffer.clear(execKey);
@@ -88,14 +90,15 @@ public class CandidateExecutionService {
         String tag = "evidence-candidate-" + assessmentId.toString().substring(0, 8) + ":run";
         String containerName = "evidence-candidate-" + assessmentId.toString().substring(0, 8);
 
-        logBuffer.append(execKey, ">>> [1/3] Building and packaging application...\n");
+        String relPath = backendDir.equals(workspaceDir) ? "." : workspaceDir.relativize(backendDir).toString().replace('\\', '/');
+        logBuffer.append(execKey, ">>> [1/3] Building and packaging application in " + relPath + "...\n");
 
         // 2. Package candidate code
-        Path targetDir = workspaceDir.resolve("target");
+        Path targetDir = backendDir.resolve("target");
         boolean jarExists = DockerUtils.findJarFile(targetDir).isPresent();
 
         // Ensure .mvn/wrapper/maven-wrapper.properties exists if mvnw is used
-        Path mvnDir = workspaceDir.resolve(".mvn");
+        Path mvnDir = backendDir.resolve(".mvn");
         if (!Files.exists(mvnDir.resolve("wrapper").resolve("maven-wrapper.properties"))) {
             Path origMvn = workspaceDir.getParent() != null ? workspaceDir.getParent().resolve("original").resolve(".mvn") : null;
             Path backendMvn = Paths.get(".mvn").toAbsolutePath();
@@ -110,7 +113,10 @@ public class CandidateExecutionService {
             }
         }
 
-        File mvnwFile = workspaceDir.resolve("mvnw").toFile();
+        File mvnwFile = backendDir.resolve("mvnw").toFile();
+        if (!mvnwFile.exists() && workspaceDir.resolve("mvnw").toFile().exists()) {
+            mvnwFile = workspaceDir.resolve("mvnw").toFile();
+        }
         if (mvnwFile.exists()) {
             try {
                 mvnwFile.setExecutable(true, false);
@@ -127,7 +133,7 @@ public class CandidateExecutionService {
         }
 
         boolean hasWrapperProps = Files.exists(mvnDir.resolve("wrapper").resolve("maven-wrapper.properties"));
-        if (hasWrapperProps && Files.exists(workspaceDir.resolve("mvnw.cmd"))) {
+        if (hasWrapperProps && Files.exists(backendDir.resolve("mvnw.cmd"))) {
             mvnCmd = DockerUtils.isWindows() ? "mvnw.cmd" : (mvnwFile.exists() ? "./mvnw" : mvnCmd);
         } else if (hasWrapperProps && mvnwFile.exists()) {
             mvnCmd = "./mvnw";
@@ -246,6 +252,26 @@ public class CandidateExecutionService {
                         } catch (Exception ignored) {}
                     }).start();
 
+                    // Allow quick startup check to detect early exit (e.g. no main class or immediate error)
+                    try {
+                        Thread.sleep(400);
+                    } catch (InterruptedException ignored) {}
+
+                    if (!proc.isAlive()) {
+                        int exitVal = proc.exitValue();
+                        String errorMsg = "Application process exited immediately with code " + exitVal;
+                        activeExecutions.put(assessmentId, new ActiveExecution(
+                                executionId, assessmentId, "native-process", null, exposedPort, null,
+                                Instant.now(), BuildStatus.SUCCESS, ContainerStatus.STOPPED, ApplicationStatus.FAILED, errorMsg
+                        ));
+                        return ExecutionRunResponse.builder()
+                                .executionId(executionId)
+                                .status("FAILED")
+                                .port(exposedPort)
+                                .message(errorMsg)
+                                .build();
+                    }
+
                     activeExecutions.put(assessmentId, new ActiveExecution(
                             executionId, assessmentId, "native-process", null, exposedPort, proc,
                             Instant.now(), BuildStatus.SUCCESS, ContainerStatus.RUNNING, ApplicationStatus.STARTED, null
@@ -256,7 +282,20 @@ public class CandidateExecutionService {
                             executionId, assessmentId, null, null, exposedPort, null,
                             Instant.now(), BuildStatus.FAILED, ContainerStatus.STOPPED, ApplicationStatus.FAILED, ex.getMessage()
                     ));
+                    return ExecutionRunResponse.builder()
+                            .executionId(executionId)
+                            .status("FAILED")
+                            .port(exposedPort)
+                            .message("Failed to launch native process: " + ex.getMessage())
+                            .build();
                 }
+            } else {
+                return ExecutionRunResponse.builder()
+                        .executionId(executionId)
+                        .status("FAILED")
+                        .port(exposedPort)
+                        .message("No packaged jar found to execute in " + relPath)
+                        .build();
             }
         }
 
@@ -289,12 +328,19 @@ public class CandidateExecutionService {
                     .build();
         }
 
+        ContainerStatus cStatus = exec.containerStatus();
+        ApplicationStatus aStatus = exec.applicationStatus();
+        if (exec.process() != null && !exec.process().isAlive()) {
+            cStatus = ContainerStatus.STOPPED;
+            aStatus = ApplicationStatus.FAILED;
+        }
+
         long uptime = java.time.Duration.between(exec.startTime(), Instant.now()).getSeconds();
         return ExecutionStatusResponse.builder()
                 .executionId(exec.executionId())
                 .buildStatus(exec.buildStatus())
-                .containerStatus(exec.containerStatus())
-                .applicationStatus(exec.applicationStatus())
+                .containerStatus(cStatus)
+                .applicationStatus(aStatus)
                 .port(exec.port())
                 .uptimeSeconds(uptime)
                 .errorMessage(exec.errorMessage())

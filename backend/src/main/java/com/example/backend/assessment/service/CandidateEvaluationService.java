@@ -42,6 +42,7 @@ public class CandidateEvaluationService {
     private final EvaluationReportRepository evaluationReportRepository;
     private final CandidateWorkspaceService candidateWorkspaceService;
     private final CandidateExecutionService executionService;
+    private final com.example.backend.pipeline.workspace.WorkspacePathService pathService;
     private final BlackBoxTestRunnerService testRunnerService;
     private final ProcessCommandExecutor dockerExecutor;
     private final AiEvaluationService aiEvaluationService;
@@ -71,22 +72,19 @@ public class CandidateEvaluationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Assessment not found: " + assessmentId));
 
         if (assessment.getCandidate() == null || !assessment.getCandidate().getId().equals(candidateId)) {
-            throw new ForbiddenException("Candidate is not authorized for this assessment");
+            throw new ForbiddenException("Candidate is not authorized to submit this assessment");
         }
-
-        // Stop any currently running candidate test container
-        executionService.stopExistingExecution(assessmentId);
 
         Instant now = Instant.now();
         long timeTakenSeconds = 0L;
         if (assessment.getScheduledStartAt() != null) {
-            timeTakenSeconds = Math.max(0, durationBetween(assessment.getScheduledStartAt(), now));
+            timeTakenSeconds = Math.max(0L, java.time.Duration.between(assessment.getScheduledStartAt(), now).getSeconds());
         }
 
-        // Create / Update Submission
+        executionService.stopExistingExecution(assessmentId);
+
         Submission submission = submissionRepository.findByAssessmentId(assessmentId)
                 .orElseGet(() -> new Submission(assessment, now, 0L, SubmissionStatus.EVALUATING));
-
         submission.setSubmittedAt(now);
         submission.setTimeTakenSeconds(timeTakenSeconds);
         submission.setStatus(SubmissionStatus.EVALUATING);
@@ -97,11 +95,12 @@ public class CandidateEvaluationService {
 
         // 1. Package candidate code
         Path workspaceDir = candidateWorkspaceService.resolveCandidateWorkspace(candidateId, assessmentId);
-        File workingDir = workspaceDir.toFile();
-        Path targetDir = workspaceDir.resolve("target");
+        Path backendDir = pathService.resolveBackendDirectory(workspaceDir, assessment.getBackendRootDirectory());
+        File workingDir = backendDir.toFile();
+        Path targetDir = backendDir.resolve("target");
 
         // Ensure .mvn/wrapper/maven-wrapper.properties exists
-        Path mvnDir = workspaceDir.resolve(".mvn");
+        Path mvnDir = backendDir.resolve(".mvn");
         if (!Files.exists(mvnDir.resolve("wrapper").resolve("maven-wrapper.properties"))) {
             Path origMvn = workspaceDir.getParent() != null ? workspaceDir.getParent().resolve("original").resolve(".mvn") : null;
             Path backendMvn = Paths.get(".mvn").toAbsolutePath();
@@ -116,7 +115,10 @@ public class CandidateEvaluationService {
             }
         }
 
-        File mvnwFile = workspaceDir.resolve("mvnw").toFile();
+        File mvnwFile = backendDir.resolve("mvnw").toFile();
+        if (!mvnwFile.exists() && workspaceDir.resolve("mvnw").toFile().exists()) {
+            mvnwFile = workspaceDir.resolve("mvnw").toFile();
+        }
         if (mvnwFile.exists()) {
             try {
                 mvnwFile.setExecutable(true, false);
@@ -133,7 +135,7 @@ public class CandidateEvaluationService {
         }
 
         boolean hasWrapperProps = Files.exists(mvnDir.resolve("wrapper").resolve("maven-wrapper.properties"));
-        if (hasWrapperProps && Files.exists(workspaceDir.resolve("mvnw.cmd"))) {
+        if (hasWrapperProps && Files.exists(backendDir.resolve("mvnw.cmd"))) {
             mvnCmd = DockerUtils.isWindows() ? "mvnw.cmd" : (mvnwFile.exists() ? "./mvnw" : mvnCmd);
         } else if (hasWrapperProps && mvnwFile.exists()) {
             mvnCmd = "./mvnw";

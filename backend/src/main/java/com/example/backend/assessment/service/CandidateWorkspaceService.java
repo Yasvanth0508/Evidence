@@ -210,6 +210,8 @@ public class CandidateWorkspaceService {
             } catch (Exception e) {
                 log.error("Could not initialize candidate workspace directory", e);
             }
+        } else {
+            initializer.cleanupAccidentalRootStarterFiles(candidateWorkspacePath);
         }
         return candidateWorkspacePath;
     }

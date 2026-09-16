@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: evidence-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: DB_HOST
+        value: db.adtdrtkyuwinchobfuuu.supabase.co
+      - key: DB_PORT
+        value: 5432
+      - key: DB_NAME
+        value: postgres
+      - key: DB_USER
+        value: postgres
+      - key: DB_PASSWORD
+        value: Yasvanth123.
+      - key: DB_SSLMODE
+        value: require
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:postgresql://db.adtdrtkyuwinchobfuuu.supabase.co:5432/postgres?sslmode=require
+      - key: MISTRAL_API_KEY
+        value: WSyiVd0Q8bGn7XQirp7CQEU4PB1U8T79
+      - key: MISTRAL_BASE_URL
+        value: https://api.mistral.ai/v1
+      - key: MISTRAL_MODEL
+        value: mistral-small-latest
+      - key: GOOGLE_CLIENT_ID
+        value: 94622371310-d341h06a642ihfprgnkuearmiqji41sk.apps.googleusercontent.com
+      - key: JWT_SECRET
+        value: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      - key: JWT_EXPIRATION_MS
+        value: 86400000
+      - key: CORS_ALLOWED_ORIGINS
+        value: "*"

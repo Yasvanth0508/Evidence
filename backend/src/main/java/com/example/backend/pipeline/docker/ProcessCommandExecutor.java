@@ -66,7 +66,7 @@ public class ProcessCommandExecutor {
 
             ProcessBuilder pb = new ProcessBuilder(commandList);
             Map<String, String> env = pb.environment();
-            env.put("MAVEN_OPTS", "-Xmx96m -Xms24m -Xss256k -XX:+UseSerialGC");
+            env.put("MAVEN_OPTS", "-Xmx80m -Xms16m -Xss256k -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.awt.headless=true");
 
             // Ensure JAVA_HOME and Path are explicitly set for process execution
             String javaHome = System.getProperty("java.home");

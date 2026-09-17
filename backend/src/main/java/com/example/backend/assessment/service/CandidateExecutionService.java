@@ -21,6 +21,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -170,21 +172,39 @@ public class CandidateExecutionService {
             } catch (Exception ignored) {}
         }
 
-        String mvnCmd = DockerUtils.isWindows() ? "mvn.cmd" : "mvn";
+        List<String> mvnArgs = new ArrayList<>();
         if (!DockerUtils.isWindows()) {
             if (new File("/usr/bin/mvn").exists()) {
-                mvnCmd = "/usr/bin/mvn";
+                mvnArgs.add("/usr/bin/mvn");
             } else if (new File("/usr/local/bin/mvn").exists()) {
-                mvnCmd = "/usr/local/bin/mvn";
+                mvnArgs.add("/usr/local/bin/mvn");
+            } else {
+                boolean hasWrapperProps = Files.exists(mvnDir.resolve("wrapper").resolve("maven-wrapper.properties"));
+                if (hasWrapperProps && mvnwFile.exists()) {
+                    mvnArgs.add("sh");
+                    mvnArgs.add(mvnwFile.getAbsolutePath());
+                } else {
+                    mvnArgs.add("mvn");
+                }
+            }
+        } else {
+            boolean hasWrapperProps = Files.exists(mvnDir.resolve("wrapper").resolve("maven-wrapper.properties"));
+            if (hasWrapperProps && Files.exists(backendDir.resolve("mvnw.cmd"))) {
+                mvnArgs.add("mvnw.cmd");
+            } else {
+                mvnArgs.add("mvn.cmd");
             }
         }
 
-        boolean hasWrapperProps = Files.exists(mvnDir.resolve("wrapper").resolve("maven-wrapper.properties"));
-        if (hasWrapperProps && Files.exists(backendDir.resolve("mvnw.cmd"))) {
-            mvnCmd = DockerUtils.isWindows() ? "mvnw.cmd" : (mvnwFile.exists() ? "./mvnw" : mvnCmd);
-        } else if (hasWrapperProps && mvnwFile.exists()) {
-            mvnCmd = "./mvnw";
-        }
+        mvnArgs.add("package");
+        mvnArgs.add("-DskipTests");
+        mvnArgs.add("-Dcheckstyle.skip=true");
+        mvnArgs.add("-Dspotbugs.skip=true");
+        mvnArgs.add("-Djacoco.skip=true");
+        mvnArgs.add("-Dmaven.compiler.fork=false");
+
+        // Force GC on backend JVM before spawning child Maven process to reserve memory
+        System.gc();
 
         ProcessCommandExecutor.ProcessResult packageResult = dockerExecutor.executeCommand(
                 workingDir,
@@ -194,7 +214,7 @@ public class CandidateExecutionService {
                         executionId, assessmentId, containerName, tag, exposedPort, proc,
                         Instant.now(), BuildStatus.BUILDING, ContainerStatus.STOPPED, ApplicationStatus.FAILED, null
                 )),
-                mvnCmd, "package", "-DskipTests", "-Dcheckstyle.skip=true", "-Dspotbugs.skip=true", "-Djacoco.skip=true"
+                mvnArgs.toArray(new String[0])
         );
 
         if (!packageResult.isSuccess()) {
@@ -271,14 +291,18 @@ public class CandidateExecutionService {
             Optional<Path> jarPath = DockerUtils.findJarFile(targetDir);
             if (jarPath.isPresent()) {
                 try {
+                    System.gc();
                     String javaHome = System.getProperty("java.home");
                     String javaExe = javaHome != null ? javaHome + File.separator + "bin" + File.separator + (DockerUtils.isWindows() ? "java.exe" : "java") : "java";
                     ProcessBuilder pb = new ProcessBuilder(
                             javaExe,
                             "-XX:+UseSerialGC",
-                            "-Xms24m",
-                            "-Xmx64m",
+                            "-XX:TieredStopAtLevel=1",
+                            "-Xms16m",
+                            "-Xmx48m",
                             "-Xss256k",
+                            "-Djava.awt.headless=true",
+                            "-Djava.security.egd=file:/dev/./urandom",
                             "-jar", jarPath.get().toAbsolutePath().toString(),
                             "--server.port=" + exposedPort
                     );

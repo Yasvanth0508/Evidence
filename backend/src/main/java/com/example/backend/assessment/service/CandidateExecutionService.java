@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -90,12 +91,46 @@ public class CandidateExecutionService {
         String tag = "evidence-candidate-" + assessmentId.toString().substring(0, 8) + ":run";
         String containerName = "evidence-candidate-" + assessmentId.toString().substring(0, 8);
 
+        // Register initial BUILDING state
+        activeExecutions.put(assessmentId, new ActiveExecution(
+                executionId, assessmentId, containerName, tag, exposedPort, null,
+                Instant.now(), BuildStatus.BUILDING, ContainerStatus.STOPPED, ApplicationStatus.FAILED, null
+        ));
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                executeBuildAndRun(assessmentId, executionId, workspaceDir, backendDir, containerName, tag, exposedPort, execKey);
+            } catch (Exception e) {
+                log.error("Unhandled error during async candidate build/run for assessment {}", assessmentId, e);
+                logBuffer.append(execKey, "[ERROR] Build / Run failed: " + e.getMessage() + "\n");
+                activeExecutions.put(assessmentId, new ActiveExecution(
+                        executionId, assessmentId, containerName, tag, exposedPort, null,
+                        Instant.now(), BuildStatus.FAILED, ContainerStatus.STOPPED, ApplicationStatus.FAILED, e.getMessage()
+                ));
+            }
+        });
+
+        return ExecutionRunResponse.builder()
+                .executionId(executionId)
+                .status("BUILDING")
+                .port(exposedPort)
+                .message("Application compilation and execution initiated")
+                .build();
+    }
+
+    private void executeBuildAndRun(
+            UUID assessmentId,
+            UUID executionId,
+            Path workspaceDir,
+            Path backendDir,
+            String containerName,
+            String tag,
+            int exposedPort,
+            String execKey) {
+
+        File workingDir = backendDir.toFile();
         String relPath = backendDir.equals(workspaceDir) ? "." : workspaceDir.relativize(backendDir).toString().replace('\\', '/');
         logBuffer.append(execKey, ">>> [1/3] Building and packaging application in " + relPath + "...\n");
-
-        // 2. Package candidate code
-        Path targetDir = backendDir.resolve("target");
-        boolean jarExists = DockerUtils.findJarFile(targetDir).isPresent();
 
         // Ensure .mvn/wrapper/maven-wrapper.properties exists if mvnw is used
         Path mvnDir = backendDir.resolve(".mvn");
@@ -153,27 +188,19 @@ public class CandidateExecutionService {
                     executionId, assessmentId, containerName, tag, exposedPort, null,
                     Instant.now(), BuildStatus.FAILED, ContainerStatus.STOPPED, ApplicationStatus.FAILED, error
             ));
-            return ExecutionRunResponse.builder()
-                    .executionId(executionId)
-                    .status("FAILED")
-                    .port(exposedPort)
-                    .message("Compilation failed: check execution logs")
-                    .build();
+            return;
         }
 
-        jarExists = DockerUtils.findJarFile(targetDir).isPresent();
+        Path targetDir = backendDir.resolve("target");
+        boolean jarExists = DockerUtils.findJarFile(targetDir).isPresent();
         if (!jarExists) {
             String error = "Maven completed but no runnable JAR file was found in " + targetDir;
             activeExecutions.put(assessmentId, new ActiveExecution(
                     executionId, assessmentId, containerName, tag, exposedPort, null,
                     Instant.now(), BuildStatus.FAILED, ContainerStatus.STOPPED, ApplicationStatus.FAILED, error
             ));
-            return ExecutionRunResponse.builder()
-                    .executionId(executionId)
-                    .status("FAILED")
-                    .port(exposedPort)
-                    .message("No runnable JAR found after build: check execution logs")
-                    .build();
+            logBuffer.append(execKey, "[ERROR] " + error + "\n");
+            return;
         }
 
         // 3. Ensure Dockerfile exists in workspace
@@ -205,12 +232,7 @@ public class CandidateExecutionService {
                     executionId, assessmentId, containerName, tag, exposedPort, null,
                     Instant.now(), BuildStatus.FAILED, ContainerStatus.STOPPED, ApplicationStatus.FAILED, buildResult.stderr()
                 ));
-                return ExecutionRunResponse.builder()
-                        .executionId(executionId)
-                        .status("FAILED")
-                        .port(exposedPort)
-                        .message("Docker image build failed")
-                        .build();
+                return;
             }
 
             logBuffer.append(execKey, ">>> [3/3] Starting candidate container on port " + exposedPort + "...\n");
@@ -256,9 +278,9 @@ public class CandidateExecutionService {
                         } catch (Exception ignored) {}
                     }).start();
 
-                    // Allow quick startup check to detect early exit (e.g. no main class or immediate error)
+                    // Allow quick startup check to detect early exit
                     try {
-                        Thread.sleep(400);
+                        Thread.sleep(500);
                     } catch (InterruptedException ignored) {}
 
                     if (!proc.isAlive()) {
@@ -268,47 +290,29 @@ public class CandidateExecutionService {
                                 executionId, assessmentId, "native-process", null, exposedPort, null,
                                 Instant.now(), BuildStatus.SUCCESS, ContainerStatus.STOPPED, ApplicationStatus.FAILED, errorMsg
                         ));
-                        return ExecutionRunResponse.builder()
-                                .executionId(executionId)
-                                .status("FAILED")
-                                .port(exposedPort)
-                                .message(errorMsg)
-                                .build();
+                        logBuffer.append(execKey, "[ERROR] " + errorMsg + "\n");
+                        return;
                     }
 
                     activeExecutions.put(assessmentId, new ActiveExecution(
                             executionId, assessmentId, "native-process", null, exposedPort, proc,
                             Instant.now(), BuildStatus.SUCCESS, ContainerStatus.RUNNING, ApplicationStatus.STARTED, null
                     ));
+                    logBuffer.append(execKey, ">>> [3/3] Application started successfully on dynamic port " + exposedPort + "!\n");
                 } catch (Exception ex) {
                     logBuffer.append(execKey, "Failed to launch native process: " + ex.getMessage() + "\n");
                     activeExecutions.put(assessmentId, new ActiveExecution(
                             executionId, assessmentId, null, null, exposedPort, null,
                             Instant.now(), BuildStatus.FAILED, ContainerStatus.STOPPED, ApplicationStatus.FAILED, ex.getMessage()
                     ));
-                    return ExecutionRunResponse.builder()
-                            .executionId(executionId)
-                            .status("FAILED")
-                            .port(exposedPort)
-                            .message("Failed to launch native process: " + ex.getMessage())
-                            .build();
                 }
             } else {
-                return ExecutionRunResponse.builder()
-                        .executionId(executionId)
-                        .status("FAILED")
-                        .port(exposedPort)
-                        .message("No packaged jar found to execute in " + relPath)
-                        .build();
+                activeExecutions.put(assessmentId, new ActiveExecution(
+                        executionId, assessmentId, null, null, exposedPort, null,
+                        Instant.now(), BuildStatus.FAILED, ContainerStatus.STOPPED, ApplicationStatus.FAILED, "No packaged jar found"
+                ));
             }
         }
-
-        return ExecutionRunResponse.builder()
-                .executionId(executionId)
-                .status("RUNNING")
-                .port(exposedPort)
-                .message("Application started on port " + exposedPort)
-                .build();
     }
 
     /**

@@ -405,26 +405,62 @@ export const AssessmentWorkspace = () => {
 
       const res = await runMutation.mutateAsync(id);
 
-      try {
-        const logRes = await assessmentService.getExecutionLogs(id);
-        if (logRes && logRes.logs) {
-          const rawLines = logRes.logs.split("\n").filter((l: string) => l.trim().length > 0);
-          setLogs(rawLines);
+      if (res?.status === "FAILED") {
+        setIsRunningBuild(false);
+        setBuildStatus("FAILED");
+        try {
+          const logRes = await assessmentService.getExecutionLogs(id);
+          if (logRes?.logs) {
+            setLogs(logRes.logs.split("\n").filter((l: string) => l.trim().length > 0));
+          }
+        } catch {}
+        return;
+      }
+
+      // Stream logs and poll status until complete
+      let attempts = 0;
+      const maxAttempts = 120; // 120 * 1.5s = 180s max
+      while (attempts < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        attempts++;
+
+        try {
+          const logRes = await assessmentService.getExecutionLogs(id);
+          if (logRes && logRes.logs) {
+            const rawLines = logRes.logs.split("\n").filter((l: string) => l.trim().length > 0);
+            setLogs(rawLines);
+          }
+
+          const statusRes = await assessmentService.getExecutionStatus(id);
+          if (statusRes?.buildStatus === "SUCCESS") {
+            setIsRunningBuild(false);
+            setBuildStatus("SUCCESS");
+            setLogs((prev) => [
+              ...prev,
+              `✔ Application is running! Sandbox listening on dynamic port: ${statusRes?.port || res?.port || 18080}`,
+            ]);
+            return;
+          } else if (statusRes?.buildStatus === "FAILED") {
+            setIsRunningBuild(false);
+            setBuildStatus("FAILED");
+            setLogs((prev) => [
+              ...prev,
+              `[ERROR] Execution failed: ${statusRes?.errorMessage || "Compilation or startup error"}`,
+              "✗ Build failed with error",
+            ]);
+            return;
+          }
+        } catch (pollErr) {
+          console.debug("Polling error:", pollErr);
         }
-      } catch (logErr) {
-        console.debug("Could not fetch execution logs:", logErr);
       }
 
       setIsRunningBuild(false);
-      if (res.status === "FAILED") {
-        setBuildStatus("FAILED");
-      } else {
-        setBuildStatus("SUCCESS");
-        setLogs((prev) => [
-          ...prev,
-          `✔ Application is running! Sandbox listening on dynamic port: ${res.port || 18080}`,
-        ]);
-      }
+      setBuildStatus("FAILED");
+      setLogs((prev) => [
+        ...prev,
+        "[ERROR] Build and startup timed out after 3 minutes.",
+      ]);
     } catch (err: any) {
       setIsRunningBuild(false);
       setBuildStatus("FAILED");

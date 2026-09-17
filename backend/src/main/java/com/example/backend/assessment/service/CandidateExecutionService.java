@@ -236,7 +236,11 @@ public class CandidateExecutionService {
                     String javaHome = System.getProperty("java.home");
                     String javaExe = javaHome != null ? javaHome + File.separator + "bin" + File.separator + (DockerUtils.isWindows() ? "java.exe" : "java") : "java";
                     ProcessBuilder pb = new ProcessBuilder(
-                            javaExe, "-jar", jarPath.get().toAbsolutePath().toString(),
+                            javaExe,
+                            "-XX:+UseSerialGC",
+                            "-Xms32m",
+                            "-Xmx96m",
+                            "-jar", jarPath.get().toAbsolutePath().toString(),
                             "--server.port=" + exposedPort
                     );
                     pb.directory(workingDir);

@@ -32,6 +32,10 @@ public class ProcessCommandExecutor {
     }
 
     public ProcessResult executeCommand(File workingDir, long timeoutSeconds, String... command) {
+        return executeCommand(workingDir, timeoutSeconds, null, command);
+    }
+
+    public ProcessResult executeCommand(File workingDir, long timeoutSeconds, java.util.function.Consumer<String> lineConsumer, String... command) {
         log.debug("Executing Process command: {} in directory {}", Arrays.toString(command), workingDir);
         long startTime = System.currentTimeMillis();
 
@@ -53,7 +57,7 @@ public class ProcessCommandExecutor {
 
             ProcessBuilder pb = new ProcessBuilder(commandList);
             Map<String, String> env = pb.environment();
-            env.put("MAVEN_OPTS", "-Xmx128m -Xms32m -XX:+UseSerialGC");
+            env.put("MAVEN_OPTS", "-Xmx96m -Xms24m -XX:MaxMetaspaceSize=64m -Xss256k -XX:+UseSerialGC");
 
             // Ensure JAVA_HOME and Path are explicitly set for process execution
             String javaHome = System.getProperty("java.home");
@@ -83,6 +87,9 @@ public class ProcessCommandExecutor {
                     String line;
                     while ((line = reader.readLine()) != null) {
                         stdout.append(line).append("\n");
+                        if (lineConsumer != null) {
+                            lineConsumer.accept(line);
+                        }
                     }
                 } catch (Exception ignored) {
                 }
@@ -93,6 +100,9 @@ public class ProcessCommandExecutor {
                     String line;
                     while ((line = reader.readLine()) != null) {
                         stderr.append(line).append("\n");
+                        if (lineConsumer != null) {
+                            lineConsumer.accept(line);
+                        }
                     }
                 } catch (Exception ignored) {
                 }

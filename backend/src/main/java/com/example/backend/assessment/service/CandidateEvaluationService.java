@@ -183,8 +183,10 @@ public class CandidateEvaluationService {
                         ProcessBuilder pb = new ProcessBuilder(
                                 javaExe,
                                 "-XX:+UseSerialGC",
-                                "-Xms32m",
-                                "-Xmx96m",
+                                "-Xms24m",
+                                "-Xmx64m",
+                                "-XX:MaxMetaspaceSize=64m",
+                                "-Xss256k",
                                 "-jar", jarPath.get().toAbsolutePath().toString(),
                                 "--server.port=" + evalPort
                         );

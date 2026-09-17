@@ -177,10 +177,9 @@ public class CandidateExecutionService {
         ProcessCommandExecutor.ProcessResult packageResult = dockerExecutor.executeCommand(
                 workingDir,
                 240,
-                mvnCmd, "package", "-DskipTests", "-Dcheckstyle.skip=true"
+                line -> logBuffer.append(execKey, line + "\n"),
+                mvnCmd, "package", "-DskipTests", "-Dcheckstyle.skip=true", "-Dspotbugs.skip=true", "-Djacoco.skip=true"
         );
-
-        logBuffer.append(execKey, packageResult.combinedOutput() + "\n");
 
         if (!packageResult.isSuccess()) {
             String error = "Compilation / Packaging failed:\n" + (packageResult.stderr().isEmpty() ? packageResult.combinedOutput() : packageResult.stderr());
@@ -223,9 +222,10 @@ public class CandidateExecutionService {
         if (dockerAvailable) {
             logBuffer.append(execKey, ">>> [2/3] Building Docker image " + tag + "...\n");
             ProcessCommandExecutor.ProcessResult buildResult = dockerExecutor.executeCommand(
-                    workingDir, 120, "docker", "build", "-t", tag, "."
+                    workingDir, 120,
+                    line -> logBuffer.append(execKey, line + "\n"),
+                    "docker", "build", "-t", tag, "."
             );
-            logBuffer.append(execKey, buildResult.combinedOutput() + "\n");
 
             if (!buildResult.isSuccess()) {
                 activeExecutions.put(assessmentId, new ActiveExecution(
@@ -238,12 +238,12 @@ public class CandidateExecutionService {
             logBuffer.append(execKey, ">>> [3/3] Starting candidate container on port " + exposedPort + "...\n");
             ProcessCommandExecutor.ProcessResult runResult = dockerExecutor.executeCommand(
                     workingDir, 30,
+                    line -> logBuffer.append(execKey, line + "\n"),
                     "docker", "run", "-d",
                     "--name", containerName,
                     "-p", exposedPort + ":8080",
                     tag
             );
-            logBuffer.append(execKey, runResult.combinedOutput() + "\n");
 
             activeExecutions.put(assessmentId, new ActiveExecution(
                     executionId, assessmentId, containerName, tag, exposedPort, null,
@@ -260,8 +260,10 @@ public class CandidateExecutionService {
                     ProcessBuilder pb = new ProcessBuilder(
                             javaExe,
                             "-XX:+UseSerialGC",
-                            "-Xms32m",
-                            "-Xmx96m",
+                            "-Xms24m",
+                            "-Xmx64m",
+                            "-XX:MaxMetaspaceSize=64m",
+                            "-Xss256k",
                             "-jar", jarPath.get().toAbsolutePath().toString(),
                             "--server.port=" + exposedPort
                     );

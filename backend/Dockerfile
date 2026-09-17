@@ -15,7 +15,7 @@ WORKDIR /app
 # Install Maven, Git, Bash, and curl for compiling candidate repositories
 RUN apk add --no-cache maven git bash curl
 
-ENV MAVEN_OPTS="-Xms32m -Xmx128m -XX:+UseSerialGC"
+ENV MAVEN_OPTS="-Xms24m -Xmx96m -XX:MaxMetaspaceSize=64m -Xss256k -XX:+UseSerialGC"
 
 # Pre-create Maven directories
 RUN mkdir -p /root/.m2 /app/storage /app/.m2/repository
@@ -27,4 +27,4 @@ COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
 
 # Run the application with memory tuning to reserve headroom for candidate builds (Render 512MB limit)
-ENTRYPOINT ["java", "-XX:+UseSerialGC", "-Xms32m", "-Xmx160m", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:+UseSerialGC", "-Xms24m", "-Xmx120m", "-XX:MaxMetaspaceSize=96m", "-Xss256k", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]

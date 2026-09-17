@@ -141,29 +141,14 @@ public class CandidateExecutionService {
 
         ProcessCommandExecutor.ProcessResult packageResult = dockerExecutor.executeCommand(
                 workingDir,
-                120,
+                240,
                 mvnCmd, "package", "-DskipTests", "-Dcheckstyle.skip=true"
         );
 
         logBuffer.append(execKey, packageResult.combinedOutput() + "\n");
-        jarExists = DockerUtils.findJarFile(targetDir).isPresent();
 
-        if (!jarExists) {
-            // Fallback packaging via JDK jar tool if target/classes exists
-            Path classesDir = targetDir.resolve("classes");
-            if (Files.exists(classesDir)) {
-                try {
-                    Files.createDirectories(targetDir);
-                    String javaHome = System.getProperty("java.home");
-                    String jarExe = javaHome != null ? javaHome + File.separator + "bin" + File.separator + (DockerUtils.isWindows() ? "jar.exe" : "jar") : "jar";
-                    dockerExecutor.executeCommand(workingDir, 30, jarExe, "-cf", "target/app.jar", "-C", "target/classes", ".");
-                    jarExists = DockerUtils.findJarFile(targetDir).isPresent();
-                } catch (Exception ignored) {}
-            }
-        }
-
-        if (!jarExists && !packageResult.isSuccess()) {
-            String error = "Compilation / Packaging failed:\n" + packageResult.stderr();
+        if (!packageResult.isSuccess()) {
+            String error = "Compilation / Packaging failed:\n" + (packageResult.stderr().isEmpty() ? packageResult.combinedOutput() : packageResult.stderr());
             activeExecutions.put(assessmentId, new ActiveExecution(
                     executionId, assessmentId, containerName, tag, exposedPort, null,
                     Instant.now(), BuildStatus.FAILED, ContainerStatus.STOPPED, ApplicationStatus.FAILED, error
@@ -173,6 +158,21 @@ public class CandidateExecutionService {
                     .status("FAILED")
                     .port(exposedPort)
                     .message("Compilation failed: check execution logs")
+                    .build();
+        }
+
+        jarExists = DockerUtils.findJarFile(targetDir).isPresent();
+        if (!jarExists) {
+            String error = "Maven completed but no runnable JAR file was found in " + targetDir;
+            activeExecutions.put(assessmentId, new ActiveExecution(
+                    executionId, assessmentId, containerName, tag, exposedPort, null,
+                    Instant.now(), BuildStatus.FAILED, ContainerStatus.STOPPED, ApplicationStatus.FAILED, error
+            ));
+            return ExecutionRunResponse.builder()
+                    .executionId(executionId)
+                    .status("FAILED")
+                    .port(exposedPort)
+                    .message("No runnable JAR found after build: check execution logs")
                     .build();
         }
 
@@ -409,8 +409,11 @@ public class CandidateExecutionService {
                     }
                 } catch (Exception ignored) {}
             }
-            if (exec.process() != null && exec.process().isAlive()) {
-                exec.process().destroyForcibly();
+            if (exec.process() != null) {
+                try {
+                    exec.process().descendants().forEach(ProcessHandle::destroyForcibly);
+                    exec.process().destroyForcibly();
+                } catch (Exception ignored) {}
             }
         }
     }

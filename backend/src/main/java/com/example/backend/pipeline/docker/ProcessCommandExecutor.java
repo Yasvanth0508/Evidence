@@ -32,10 +32,19 @@ public class ProcessCommandExecutor {
     }
 
     public ProcessResult executeCommand(File workingDir, long timeoutSeconds, String... command) {
-        return executeCommand(workingDir, timeoutSeconds, null, command);
+        return executeCommand(workingDir, timeoutSeconds, null, null, command);
     }
 
     public ProcessResult executeCommand(File workingDir, long timeoutSeconds, java.util.function.Consumer<String> lineConsumer, String... command) {
+        return executeCommand(workingDir, timeoutSeconds, lineConsumer, null, command);
+    }
+
+    public ProcessResult executeCommand(
+            File workingDir,
+            long timeoutSeconds,
+            java.util.function.Consumer<String> lineConsumer,
+            java.util.function.Consumer<Process> processConsumer,
+            String... command) {
         log.debug("Executing Process command: {} in directory {}", Arrays.toString(command), workingDir);
         long startTime = System.currentTimeMillis();
 
@@ -78,6 +87,9 @@ public class ProcessCommandExecutor {
             }
 
             Process process = pb.start();
+            if (processConsumer != null) {
+                processConsumer.accept(process);
+            }
 
             StringBuilder stdout = new StringBuilder();
             StringBuilder stderr = new StringBuilder();

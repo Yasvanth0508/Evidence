@@ -77,7 +77,19 @@ public class CandidateExecutionService {
             throw new ForbiddenException("Candidate is not authorized for this assessment");
         }
 
-        // 1. Stop any existing running container for this assessment
+        // 1. If an execution is ALREADY in BUILDING state, return the ongoing execution
+        ActiveExecution existing = activeExecutions.get(assessmentId);
+        if (existing != null && existing.buildStatus() == BuildStatus.BUILDING) {
+            log.info("Build already in progress for assessment {}", assessmentId);
+            return ExecutionRunResponse.builder()
+                    .executionId(existing.executionId())
+                    .status("BUILDING")
+                    .port(existing.port())
+                    .message("Application compilation and execution already in progress")
+                    .build();
+        }
+
+        // 2. Stop any existing running container for this assessment
         stopExistingExecution(assessmentId);
 
         Path workspaceDir = candidateWorkspaceService.resolveCandidateWorkspace(candidateId, assessmentId);
@@ -178,6 +190,10 @@ public class CandidateExecutionService {
                 workingDir,
                 240,
                 line -> logBuffer.append(execKey, line + "\n"),
+                proc -> activeExecutions.put(assessmentId, new ActiveExecution(
+                        executionId, assessmentId, containerName, tag, exposedPort, proc,
+                        Instant.now(), BuildStatus.BUILDING, ContainerStatus.STOPPED, ApplicationStatus.FAILED, null
+                )),
                 mvnCmd, "package", "-DskipTests", "-Dcheckstyle.skip=true", "-Dspotbugs.skip=true", "-Djacoco.skip=true"
         );
 

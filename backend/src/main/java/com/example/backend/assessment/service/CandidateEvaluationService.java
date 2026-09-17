@@ -185,7 +185,6 @@ public class CandidateEvaluationService {
                                 "-XX:+UseSerialGC",
                                 "-Xms24m",
                                 "-Xmx64m",
-                                "-XX:MaxMetaspaceSize=64m",
                                 "-Xss256k",
                                 "-jar", jarPath.get().toAbsolutePath().toString(),
                                 "--server.port=" + evalPort
